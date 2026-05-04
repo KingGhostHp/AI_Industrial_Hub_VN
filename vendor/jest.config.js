@@ -8,6 +8,6 @@ module.exports = {
   ],
   verbose: true,
   transform: {
-    '^.+\\.js$': ['babel-jest', { configFile: './babel.config.js' }]
+    '^.+\\.js$': ['babel-jest', { configFile: './vendor/babel.config.js' }]
   }
 };
