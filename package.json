@@ -1,0 +1,15 @@
+{
+  "name": "mapbox-industrial-zones",
+  "version": "1.0.0",
+  "description": "Interactive satellite map with industrial zones and strategic locations",
+  "scripts": {
+    "test": "jest",
+    "test:watch": "jest --watch",
+    "test:coverage": "jest --coverage"
+  },
+  "devDependencies": {
+    "@babel/core": "^7.29.0",
+    "@babel/preset-env": "^7.29.0",
+    "jest": "^29.7.0"
+  }
+}

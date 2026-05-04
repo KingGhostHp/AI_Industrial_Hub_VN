@@ -1,0 +1,4417 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8"/>
+  <title>Mapbox Satellite – IZ/CIZ Việt Nam</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <link href="https://api.mapbox.com/mapbox-gl-js/v3.1.2/mapbox-gl.css" rel="stylesheet"/>
+  <link href="./vendor/mapbox-gl-geocoder.css" rel="stylesheet"/>
+  <link href="./vendor/mapbox-gl-draw.css" rel="stylesheet"/>
+  <link href="./src/routing/styles/routing.css?v=2" rel="stylesheet"/>
+  <link href="./src/strategic-locations/styles/strategic-locations.css" rel="stylesheet"/>
+  <link href="./src/nearest-locations/styles/nearest-locations.css" rel="stylesheet"/>
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <style>
+    html, body { height: 100%; margin: 0; font-family: 'Segoe UI', sans-serif; }
+    #map { position: absolute; top: 0; bottom: 0; width: 100%; }
+    .top-panel {
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      z-index: 10;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      width: 320px;
+    }
+    .search-box { position: relative; display: flex; flex-direction: column; gap: 6px; }
+    .search-box input {
+      padding: 8px 10px;
+      border-radius: 4px;
+      border: 1px solid #ccc;
+      width: 100%;
+      box-sizing: border-box;
+    }
+    .suggestions {
+      position: absolute;
+      top: 74px;
+      left: 0;
+      width: 100%;
+      max-height: 180px;
+      overflow-y: auto;
+      background: rgba(0,0,0,0.65);
+      color: #fff;
+      font-size: 12px;
+      border-radius: 4px;
+      padding: 6px;
+      display: none;
+      box-sizing: border-box;
+      z-index: 12;
+      backdrop-filter: blur(2px);
+    }
+    .suggestions div {
+      padding: 4px 2px;
+      cursor: pointer;
+    }
+    .suggestions div:hover { background: rgba(255,255,255,0.15); }
+    .mapboxgl-popup {
+      z-index: 10;
+    }
+    .info-card {
+      background: rgba(0,0,0,0.65);
+      color: #fff;
+      padding: 10px 12px;
+      border-radius: 6px;
+      font-size: 13px;
+      line-height: 1.4;
+    }
+    #coords { font-weight: 600; }
+    button.export-btn,
+    button.toggle-btn {
+      border: none;
+      padding: 8px 12px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-weight: 600;
+      background: #0f62fe;
+      color: #fff;
+    }
+    button.toggle-btn {
+      background: rgba(255,255,255,0.15);
+      border: 1px solid rgba(255,255,255,0.8);
+    }
+    .layer-pill {
+      background: rgba(15, 98, 254, 0.15);
+      color: #0f62fe;
+      border-radius: 999px;
+      padding: 6px 10px;
+      font-size: 12px;
+      font-weight: 600;
+      align-self: flex-start;
+    }
+    /* GPS Button Styles */
+    .gps-button {
+      position: absolute;
+      bottom: 120px;
+      right: 10px;
+      z-index: 10;
+      width: 40px;
+      height: 40px;
+      border: none;
+      border-radius: 4px;
+      background: #fff;
+      color: #333;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+      transition: all 0.2s ease;
+    }
+    .gps-button:hover {
+      background: #f5f5f5;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+    }
+    .gps-button.active {
+      background: #3B82F6;
+      color: #fff;
+    }
+    .gps-button.loading {
+      animation: pulse 1.5s ease-in-out infinite;
+    }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.5; }
+    }
+    /* User Location Marker Animation */
+    @keyframes locationPulse {
+      0% {
+        box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.7);
+      }
+      70% {
+        box-shadow: 0 0 0 20px rgba(59, 130, 246, 0);
+      }
+      100% {
+        box-shadow: 0 0 0 0 rgba(59, 130, 246, 0);
+      }
+    }
+    
+    /* Filter Toggle Button Styles */
+    .filter-toggle-btn {
+      width: 100%;
+      margin-bottom: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 10px 12px;
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      border-radius: 6px;
+      background: rgba(255, 255, 255, 0.1);
+      color: #fff;
+      cursor: pointer;
+      font-size: 13px;
+      transition: all 0.2s ease;
+      font-family: 'Segoe UI', sans-serif;
+    }
+    
+    .filter-toggle-btn:hover {
+      background: rgba(255, 255, 255, 0.15);
+      border-color: rgba(255, 255, 255, 0.3);
+    }
+    
+    .filter-toggle-btn.active {
+      background: rgba(255, 255, 255, 0.15);
+      border-color: rgba(255, 255, 255, 0.4);
+    }
+    
+    .filter-toggle-btn:not(.active) {
+      opacity: 0.5;
+      background: rgba(255, 255, 255, 0.05);
+    }
+    
+    .filter-color-indicator {
+      width: 16px;
+      height: 16px;
+      border-radius: 3px;
+      margin-right: 8px;
+      flex-shrink: 0;
+    }
+    
+    .filter-status {
+      font-weight: 600;
+      font-size: 14px;
+      margin-left: 8px;
+    }
+    
+    /* Responsive styles for province legend */
+    @media (max-width: 768px) {
+      #provinceLegend {
+        font-size: 10px !important;
+        padding: 8px 12px !important;
+        max-width: calc(100vw - 20px);
+      }
+      
+      #provinceLegend > div:first-child {
+        font-size: 11px !important;
+      }
+    }
+    
+    @media (max-width: 480px) {
+      #provinceLegend {
+        bottom: 60px !important;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div id="map"></div>
+  
+  <!-- GPS Location Button -->
+  <button id="gpsButton" class="gps-button" title="Vị trí của tôi">
+    <i data-lucide="navigation" style="width: 20px; height: 20px;"></i>
+  </button>
+  
+  <!-- Main Sidebar Toggle Button -->
+  <button id="mainSidebarToggle" style="
+    position: absolute;
+    top: 10px;
+    left: 10px;
+    z-index: 1001;
+    width: 48px;
+    height: 48px;
+    border: none;
+    border-radius: 8px;
+    background: rgba(0, 0, 0, 0.75);
+    color: white;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+    backdrop-filter: blur(10px);
+    transition: all 0.3s ease;
+  " title="Menu">
+    <i data-lucide="menu" style="width: 24px; height: 24px;"></i>
+  </button>
+
+  <!-- Main Sidebar -->
+  <div id="mainSidebar" style="
+    position: absolute;
+    top: 0;
+    left: -420px;
+    width: 400px;
+    height: 100vh;
+    background: rgba(0, 0, 0, 0.9);
+    backdrop-filter: blur(10px);
+    z-index: 1000;
+    overflow: hidden;
+    transition: left 0.3s ease;
+    box-shadow: 2px 0 12px rgba(0,0,0,0.3);
+    display: flex;
+    flex-direction: column;
+  ">
+    <!-- Sidebar Header -->
+    <div style="
+      padding: 20px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    ">
+      <h2 style="margin: 0; color: white; font-size: 20px; display: flex; align-items: center; gap: 10px;">
+        <i data-lucide="map" style="width: 24px; height: 24px;"></i>
+        Bản đồ KCN/CCN
+      </h2>
+      <button id="closeSidebarBtn" style="
+        background: none;
+        border: none;
+        color: white;
+        cursor: pointer;
+        padding: 8px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 4px;
+        transition: background 0.2s;
+      " title="Đóng">
+        <i data-lucide="x" style="width: 24px; height: 24px;"></i>
+      </button>
+    </div>
+
+    <!-- Tabs Navigation -->
+    <div style="
+      display: flex;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+      background: rgba(0, 0, 0, 0.3);
+    ">
+      <button class="sidebar-tab active" data-tab="search" style="
+        flex: 1;
+        padding: 12px;
+        border: none;
+        background: none;
+        color: rgba(255, 255, 255, 0.6);
+        cursor: pointer;
+        font-size: 13px;
+        font-weight: 600;
+        border-bottom: 2px solid transparent;
+        transition: all 0.2s;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 6px;
+      ">
+        <i data-lucide="search" style="width: 16px; height: 16px;"></i>
+        Tìm kiếm
+      </button>
+      <button class="sidebar-tab" data-tab="routing" style="
+        flex: 1;
+        padding: 12px;
+        border: none;
+        background: none;
+        color: rgba(255, 255, 255, 0.6);
+        cursor: pointer;
+        font-size: 13px;
+        font-weight: 600;
+        border-bottom: 2px solid transparent;
+        transition: all 0.2s;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 6px;
+      ">
+        <i data-lucide="route" style="width: 16px; height: 16px;"></i>
+        Tìm đường
+      </button>
+      <button class="sidebar-tab" data-tab="layers" style="
+        flex: 1;
+        padding: 12px;
+        border: none;
+        background: none;
+        color: rgba(255, 255, 255, 0.6);
+        cursor: pointer;
+        font-size: 13px;
+        font-weight: 600;
+        border-bottom: 2px solid transparent;
+        transition: all 0.2s;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 6px;
+      ">
+        <i data-lucide="layers" style="width: 16px; height: 16px;"></i>
+        Lớp bản đồ
+      </button>
+    </div>
+
+    <!-- Tab Content Container -->
+    <div style="flex: 1; overflow-y: auto; padding: 20px;">
+      <!-- Search Tab -->
+      <div id="searchTab" class="tab-content active">
+        <!-- Google Maps style search box -->
+        <div class="search-box" style="margin-bottom: 16px; position: relative;">
+          <div style="
+            position: relative;
+            background: #fff;
+            border-radius: 28px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+            display: flex;
+            align-items: center;
+            padding: 12px 16px;
+            transition: box-shadow 0.2s ease;
+          " id="searchContainer">
+            <i data-lucide="search" style="width: 20px; height: 20px; color: #5f6368; margin-right: 12px; flex-shrink: 0;"></i>
+            <input id="searchInputSidebar" type="text" placeholder="Tìm KCN/CCN hoặc địa điểm" style="
+              border: none;
+              outline: none;
+              background: transparent;
+              color: #202124;
+              font-size: 14px;
+              width: 100%;
+              font-family: 'Segoe UI', sans-serif;
+            ">
+            <button id="clearSearchBtn" style="
+              display: none;
+              background: none;
+              border: none;
+              padding: 4px;
+              cursor: pointer;
+              margin-left: 8px;
+              flex-shrink: 0;
+            ">
+              <i data-lucide="x" style="width: 18px; height: 18px; color: #5f6368;"></i>
+            </button>
+          </div>
+          
+          <!-- Dropdown suggestions - Google Maps style -->
+          <div id="searchSuggestionSidebar" style="
+            position: absolute;
+            top: 60px;
+            left: 0;
+            right: 0;
+            max-height: 400px;
+            overflow-y: auto;
+            background: #fff;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+            display: none;
+            z-index: 1000;
+          "></div>
+        </div>
+
+        <div style="
+          padding: 16px;
+          background: rgba(255, 255, 255, 0.05);
+          border-radius: 8px;
+          margin-bottom: 16px;
+        ">
+          <h4 style="margin: 0 0 12px 0; color: #fff; font-size: 14px; display: flex; align-items: center; gap: 8px;">
+            <i data-lucide="radar" style="width: 16px; height: 16px;"></i>
+            Tìm trong bán kính
+          </h4>
+          <div style="margin-bottom: 12px;">
+            <label style="color: rgba(255, 255, 255, 0.7); font-size: 12px; display: block; margin-bottom: 6px;">
+              Bán kính (km):
+            </label>
+            <input id="radiusInputSidebar" type="number" min="1" max="500" value="100" style="
+              width: 100%;
+              padding: 8px 12px;
+              border-radius: 6px;
+              border: 1px solid rgba(255, 255, 255, 0.2);
+              background: rgba(255, 255, 255, 0.1);
+              color: #fff;
+              font-size: 14px;
+            ">
+          </div>
+          <button id="searchFromGeocoderBtnSidebar" class="route-btn-secondary" style="
+            width: 100%;
+            margin-bottom: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            padding: 10px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 6px;
+            background: rgba(255, 255, 255, 0.1);
+            color: #fff;
+            cursor: pointer;
+            font-size: 13px;
+            transition: background 0.2s;
+          ">
+            <i data-lucide="map-pin" style="width: 16px; height: 16px;"></i>
+            Tìm quanh vị trí tìm kiếm
+          </button>
+          <button id="searchFromSelectedBtnSidebar" class="route-btn-secondary" style="
+            width: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            padding: 10px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 6px;
+            background: rgba(255, 255, 255, 0.1);
+            color: #fff;
+            cursor: pointer;
+            font-size: 13px;
+            transition: background 0.2s;
+          ">
+            <i data-lucide="target" style="width: 16px; height: 16px;"></i>
+            Tìm quanh KCN/CCN đã chọn
+          </button>
+          <button id="searchFromMyLocationBtn" class="route-btn-secondary" style="
+            width: 100%;
+            margin-top: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            padding: 10px;
+            border: 1px solid rgba(59, 130, 246, 0.4);
+            border-radius: 6px;
+            background: rgba(59, 130, 246, 0.15);
+            color: #3B82F6;
+            cursor: pointer;
+            font-size: 13px;
+            font-weight: 600;
+            transition: all 0.2s;
+          ">
+            <i data-lucide="navigation" style="width: 16px; height: 16px;"></i>
+            Tìm KCN/CCN gần tôi
+          </button>
+          <button id="setManualLocationBtn" class="route-btn-secondary" style="
+            width: 100%;
+            margin-top: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            padding: 10px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 6px;
+            background: rgba(255, 255, 255, 0.05);
+            color: rgba(255, 255, 255, 0.8);
+            cursor: pointer;
+            font-size: 12px;
+            transition: all 0.2s;
+          ">
+            <i data-lucide="map-pin-plus" style="width: 14px; height: 14px;"></i>
+            Đặt vị trí thủ công (nếu GPS sai)
+          </button>
+          <div id="searchResultSidebar" style="margin-top: 12px; font-size: 12px; color: #fff;"></div>
+          <div id="searchListSidebar" style="
+            margin-top: 12px;
+            font-size: 12px;
+            color: #fff;
+            max-height: 200px;
+            overflow-y: auto;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            padding: 8px;
+            border-radius: 6px;
+            display: none;
+          "></div>
+        </div>
+
+        <div style="
+          padding: 12px;
+          background: rgba(59, 130, 246, 0.1);
+          border-radius: 6px;
+          font-size: 12px;
+          color: rgba(255, 255, 255, 0.8);
+          line-height: 1.5;
+        ">
+          <strong>💡 Thống kê:</strong><br>
+          <span id="statsText">Đang tải dữ liệu...</span>
+        </div>
+      </div>
+
+      <!-- Routing Tab -->
+      <div id="routingTab" class="tab-content" style="display: none;">
+        <div id="routePanelContainer"></div>
+      </div>
+
+      <!-- Layers Tab -->
+      <div id="layersTab" class="tab-content" style="display: none;">
+        <div style="
+          padding: 16px;
+          background: rgba(255, 255, 255, 0.05);
+          border-radius: 8px;
+          margin-bottom: 16px;
+        ">
+          <h4 style="margin: 0 0 12px 0; color: #fff; font-size: 14px; display: flex; align-items: center; gap: 8px;">
+            <i data-lucide="layers" style="width: 16px; height: 16px;"></i>
+            Lớp bản đồ
+          </h4>
+          <button id="toggleProvinceBtnSidebar" class="route-btn-secondary" style="
+            width: 100%;
+            margin-bottom: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 12px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 6px;
+            background: rgba(255, 255, 255, 0.1);
+            color: #fff;
+            cursor: pointer;
+            font-size: 13px;
+            transition: background 0.2s;
+          ">
+            <span style="display: flex; align-items: center; gap: 8px;">
+              <i data-lucide="map" style="width: 16px; height: 16px;"></i>
+              Lớp tỉnh thành
+            </span>
+            <span id="provinceStatusSidebar" style="color: #EF4444;">Đang ẩn</span>
+          </button>
+          <button id="toggleCartoBtnSidebar" class="route-btn-secondary" style="
+            width: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 12px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 6px;
+            background: rgba(255, 255, 255, 0.1);
+            color: #fff;
+            cursor: pointer;
+            font-size: 13px;
+            transition: background 0.2s;
+          ">
+            <span style="display: flex; align-items: center; gap: 8px;">
+              <i data-lucide="image" style="width: 16px; height: 16px;"></i>
+              Nền bản đồ
+            </span>
+            <span id="cartoStatusSidebar" style="display: flex; align-items: center; gap: 4px;">
+              Streets
+              <i data-lucide="chevron-right" style="width: 14px; height: 14px; opacity: 0.6;"></i>
+            </span>
+          </button>
+        </div>
+
+        <!-- Province Development Filter -->
+        <div style="
+          padding: 16px;
+          background: rgba(255, 255, 255, 0.05);
+          border-radius: 8px;
+          margin-bottom: 16px;
+        ">
+          <h4 style="margin: 0 0 12px 0; color: #fff; font-size: 14px; display: flex; align-items: center; gap: 8px;">
+            <i data-lucide="filter" style="width: 16px; height: 16px;"></i>
+            Lọc theo mức độ phát triển
+          </h4>
+          
+          <button id="filterDevelopedBtn" class="filter-toggle-btn active" data-filter="developed">
+            <span style="display: flex; align-items: center;">
+              <span class="filter-color-indicator" style="background: #B91C1C;"></span>
+              <span>Phát triển</span>
+            </span>
+            <span class="filter-status">✓</span>
+          </button>
+          
+          <button id="filterDevelopingBtn" class="filter-toggle-btn active" data-filter="developing">
+            <span style="display: flex; align-items: center;">
+              <span class="filter-color-indicator" style="background: #F97316;"></span>
+              <span>Đang phát triển</span>
+            </span>
+            <span class="filter-status">✓</span>
+          </button>
+          
+          <button id="filterUnderdevelopedBtn" class="filter-toggle-btn active" data-filter="underdeveloped">
+            <span style="display: flex; align-items: center;">
+              <span class="filter-color-indicator" style="background: #FDE047;"></span>
+              <span>Chưa phát triển</span>
+            </span>
+            <span class="filter-status">✓</span>
+          </button>
+        </div>
+
+        <!-- Strategic Locations Layer Control -->
+        <div style="
+          padding: 16px;
+          background: rgba(255, 255, 255, 0.05);
+          border-radius: 8px;
+          margin-bottom: 16px;
+        ">
+          <h4 style="margin: 0 0 12px 0; color: #fff; font-size: 14px; display: flex; align-items: center; gap: 8px;">
+            <i data-lucide="layers" style="width: 16px; height: 16px;"></i>
+            Lớp dữ liệu
+          </h4>
+          
+          <!-- KCN/CCN Toggle -->
+          <button id="toggleIndustrialBtn" class="route-btn-secondary" style="
+            width: 100%;
+            margin-bottom: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 12px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 6px;
+            background: rgba(255, 255, 255, 0.1);
+            color: #fff;
+            cursor: pointer;
+            font-size: 13px;
+            transition: background 0.2s;
+          ">
+            <span style="display: flex; align-items: center; gap: 8px;">
+              <i data-lucide="factory" style="width: 16px; height: 16px;"></i>
+              <span>KCN/CCN</span>
+              <span id="industrialCount" style="color: rgba(255, 255, 255, 0.6); font-size: 11px;">(0)</span>
+            </span>
+            <span id="industrialStatus" style="color: #EF4444;">Đang ẩn</span>
+          </button>
+          
+          <!-- Strategic Locations Toggle -->
+          <button id="toggleStrategicBtn" class="route-btn-secondary" style="
+            width: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 12px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 6px;
+            background: rgba(255, 255, 255, 0.1);
+            color: #fff;
+            cursor: pointer;
+            font-size: 13px;
+            transition: background 0.2s;
+          ">
+            <span style="display: flex; align-items: center; gap: 8px;">
+              <i data-lucide="map-pin" style="width: 16px; height: 16px;"></i>
+              <span>Địa điểm quan trọng</span>
+              <span id="strategicCount" style="color: rgba(255, 255, 255, 0.6); font-size: 11px;">(0)</span>
+            </span>
+            <span id="strategicStatus" style="color: #EF4444;">Đang ẩn</span>
+          </button>
+        </div>
+
+        <div style="
+          padding: 16px;
+          background: rgba(255, 255, 255, 0.05);
+          border-radius: 8px;
+        ">
+          <h4 style="margin: 0 0 12px 0; color: #fff; font-size: 14px; display: flex; align-items: center; gap: 8px;">
+            <i data-lucide="download" style="width: 16px; height: 16px;"></i>
+            Xuất dữ liệu
+          </h4>
+          <button id="exportBtnSidebar" class="route-btn-primary" style="
+            width: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            padding: 12px;
+            border: none;
+            border-radius: 6px;
+            background: #3B82F6;
+            color: #fff;
+            cursor: pointer;
+            font-size: 13px;
+            font-weight: 600;
+            transition: background 0.2s;
+          ">
+            <i data-lucide="file-json" style="width: 16px; height: 16px;"></i>
+            Xuất GeoJSON (Mapbox Draw)
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Old top panel - hidden -->
+  <div class="top-panel" style="display: none;">
+    <div class="search-box">
+      <input id="searchInput" type="text" placeholder="Tìm KCN/CCN hoặc địa điểm (OSM)">
+      <button class="toggle-btn" id="searchBtn">Tìm</button>
+      <div id="searchSuggestion" class="suggestions"></div>
+    </div>
+    <div class="info-card">
+      Nhấn vào bản đồ để lấy tọa độ (tự động copy vào clipboard).<br>
+      <span id="coords">---</span>
+    </div>
+    <div class="layer-pill" id="layerStatus">Đang tải dữ liệu khu CN...</div>
+    <button class="toggle-btn" id="toggleProvinceBtn">Ẩn lớp tỉnh</button>
+    <button class="toggle-btn" id="toggleCartoBtn">Chuyển nền streets (kiểu Google)</button>
+    <div class="info-card">
+      <strong>Tìm trong bán kính</strong><br>
+      Bán kính (km): <input id="radiusInput" type="number" min="1" max="500" value="100" style="width:80px;"> 
+      <button class="toggle-btn" id="searchFromGeocoderBtn" style="margin-top:6px;">Tìm quanh vị trí tìm kiếm</button>
+      <button class="toggle-btn" id="searchFromSelectedBtn" style="margin-top:6px;">Tìm quanh KCN/CCN đã chọn</button>
+      <div id="searchResult" style="margin-top:6px; font-size:12px; color:#fff;"></div>
+      <div id="searchList" style="margin-top:6px; font-size:12px; color:#fff; max-height:160px; overflow-y:auto; border:1px solid rgba(255,255,255,0.2); padding:6px; border-radius:4px; display:none;"></div>
+    </div>
+    <button class="export-btn" id="exportBtn">Xuất GeoJSON (Mapbox Draw)</button>
+  </div>
+
+  <!-- Coordinates Display (floating) -->
+  <div id="coordsDisplay" style="
+    position: absolute;
+    bottom: 10px;
+    left: 10px;
+    z-index: 10;
+    padding: 10px 16px;
+    background: rgba(0, 0, 0, 0.75);
+    backdrop-filter: blur(10px);
+    border-radius: 6px;
+    color: #fff;
+    font-size: 12px;
+    display: none;
+  ">
+    <strong>Tọa độ:</strong> <span id="coords">---</span>
+  </div>
+
+  <!-- Route Info Sidebar -->
+  <div id="routeInfoSidebar" style="
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    width: 350px;
+    max-height: calc(100vh - 20px);
+    overflow-y: auto;
+    z-index: 10;
+    display: none;
+  ">
+    <!-- Close button for route info -->
+    <button id="closeRouteInfoBtn" style="
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      z-index: 11;
+      width: 32px;
+      height: 32px;
+      border: none;
+      border-radius: 50%;
+      background: rgba(0, 0, 0, 0.75);
+      color: white;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+      backdrop-filter: blur(10px);
+      transition: all 0.2s ease;
+    " title="Đóng">
+      <i data-lucide="x" style="width: 18px; height: 18px;"></i>
+    </button>
+    <div id="routeInfoContainer"></div>
+  </div>
+
+  <!-- Nearest Locations Information Panel -->
+  <div id="nearestLocationsPanel" style="
+    position: absolute;
+    bottom: 10px;
+    right: 10px;
+    width: 600px;
+    max-width: calc(100vw - 20px);
+    z-index: 10;
+  "></div>
+
+  <script src="https://api.mapbox.com/mapbox-gl-js/v3.1.2/mapbox-gl.js"></script>
+  <script src="./vendor/mapbox-gl-geocoder.min.js"></script>
+  <script src="./vendor/mapbox-gl-draw.js"></script>
+  
+  <!-- Load config from .env -->
+  <script src="./config.js"></script>
+  
+  <script type="module">
+    // Load Mapbox token from config.js (generated from .env)
+    const MAPBOX_TOKEN = window.ENV_CONFIG?.MAPBOX_ACCESS_TOKEN || 'pk.eyJ1IjoiZ2lhdXRlbmJhbnRvYW4iLCJhIjoiY21oa2NqYTFnMDM4djJrcHFiYWszbDYyZSJ9.5ZQzIvVgVYD_SdtKBvxRRg';
+    const DATA_URL = './data/industrial_zones.geojson'; // replace with your dataset
+    const PROVINCE_DATA_URL = './data/provinces_34_user.geojson';
+    const PROVINCE_SOURCE_ID = 'vn-provinces';
+    const PROVINCE_LABEL_SOURCE_ID = 'vn-province-labels';
+    const BASE_STYLE_SAT = 'mapbox://styles/mapbox/satellite-streets-v12';
+    const BASE_STYLE_STREET = 'mapbox://styles/mapbox/streets-v12';
+    
+    // Tencent Map (腾讯地图) - Try different URL formats
+    const TENCENT_API_KEY = 'XK5BZ-O5NKT-QM7XL-LEPN6-C7AGS-ZNFEZ';
+    
+    // ===== TENCENT MAP TILE CONFIGURATION =====
+    // Sử dụng street/road map tiles - format phổ biến nhất
+    // Tencent Map street tiles không cần API key
+    
+    const BASE_STYLE_TENCENT = {
+      version: 8,
+      glyphs: 'mapbox://fonts/mapbox/{fontstack}/{range}.pbf', // Add glyphs for text rendering
+      sources: {
+        'tencent-tiles': {
+          type: 'raster',
+          tiles: [
+            'https://rt0.map.gtimg.com/tile?z={z}&x={x}&y={y}&styleid=1&scene=0',
+            'https://rt1.map.gtimg.com/tile?z={z}&x={x}&y={y}&styleid=1&scene=0',
+            'https://rt2.map.gtimg.com/tile?z={z}&x={x}&y={y}&styleid=1&scene=0',
+            'https://rt3.map.gtimg.com/tile?z={z}&x={x}&y={y}&styleid=1&scene=0'
+          ],
+          tileSize: 256,
+          attribution: '© 腾讯地图 (Tencent Map)'
+        }
+      },
+      layers: [
+        {
+          id: 'tencent-layer',
+          type: 'raster',
+          source: 'tencent-tiles',
+          minzoom: 0,
+          maxzoom: 18
+        }
+      ]
+    };
+    
+    const CARTO_SOURCE_ID = 'mapbox-streets-raster';
+    const CARTO_LAYER_ID = 'mapbox-streets-overlay';
+    const MARITIME_SOURCE_ID = 'vn-maritime-claims';
+    const MARITIME_FEATURES = {
+      type: 'FeatureCollection',
+      features: [
+        {
+          type: 'Feature',
+          properties: {
+            name: 'Quần đảo Hoàng Sa (Của Việt Nam)',
+            short_name: 'Hoàng Sa',
+          },
+          geometry: {
+            type: 'Polygon',
+            coordinates: [[
+              [111.0, 17.5],
+              [113.5, 17.5],
+              [113.5, 15.5],
+              [111.0, 15.5],
+              [111.0, 17.5],
+            ]],
+          },
+        },
+        {
+          type: 'Feature',
+          properties: {
+            name: 'Quần đảo Trường Sa (Của Việt Nam)',
+            short_name: 'Trường Sa',
+          },
+          geometry: {
+            type: 'Polygon',
+            coordinates: [[
+              [112.5, 12.0],
+              [117.5, 12.0],
+              [117.5, 7.0],
+              [112.5, 7.0],
+              [112.5, 12.0],
+            ]],
+          },
+        },
+      ],
+    };
+
+    const REGION_COLORS = [
+      '#e74c3c', '#9b59b6', '#3498db', '#16a085', '#f39c12', '#d35400', '#1abc9c', '#2ecc71',
+      '#e67e22', '#f1c40f', '#8e44ad', '#2980b9', '#c0392b', '#27ae60', '#d68910', '#8e6ca7',
+      '#58bfc0', '#e17055', '#6c5ce7', '#fd79a8', '#00b894', '#fdcb6e', '#6c757d', '#0984e3',
+      '#b2bec3', '#fab1a0', '#e17055', '#74b9ff', '#ffeaa7', '#a29bfe', '#55efc4', '#e84393',
+      '#00cec9', '#ff7675',
+    ];
+
+    // Province Development Classification Data
+    const PROVINCE_DEVELOPMENT_CLASSIFICATION = {
+      // Developed (Pillar) - Red
+      developed: [
+        'Hà Nội',
+        'Hải Phòng',
+        'Bắc Ninh',
+        'Quảng Ninh',
+        'Vĩnh Phúc',
+        'Đà Nẵng',
+        'Khánh Hòa',
+        'TP. Hồ Chí Minh',
+        'Bình Dương',
+        'Đồng Nai',
+        'Bà Rịa - Vũng Tàu',
+        'Long An'
+      ],
+      
+      // Developing (High Growth) - Orange
+      developing: [
+        'Bắc Giang',
+        'Thái Nguyên',
+        'Phú Thọ',
+        'Nam Định',
+        'Ninh Bình',
+        'Hà Nam',
+        'Hải Dương',
+        'Hưng Yên',
+        'Thanh Hóa',
+        'Hà Tĩnh',
+        'Nghệ An',
+        'Quảng Trị',
+        'Thừa Thiên Huế',
+        'Huế',
+        'Quảng Ngãi',
+        'Quảng Nam',
+        'Tây Ninh',
+        'Tiền Giang',
+        'Cần Thơ',
+        'Bình Phước',
+        'Đồng Tháp'
+      ],
+      
+      // Underdeveloped (Early Potential) - Yellow
+      underdeveloped: [
+        'Cao Bằng',
+        'Bắc Kạn',
+        'Hà Giang',
+        'Lào Cai',
+        'Lai Châu',
+        'Điện Biên',
+        'Sơn La',
+        'Yên Bái',
+        'Tuyên Quang',
+        'Lạng Sơn',
+        'Kon Tum',
+        'Đắk Nông',
+        'Gia Lai',
+        'Đắk Lắk',
+        'Lâm Đồng',
+        'Ninh Thuận',
+        'Bình Thuận',
+        'An Giang',
+        'Bạc Liêu',
+        'Cà Mau',
+        'Kiên Giang',
+        'Sóc Trăng',
+        'Trà Vinh',
+        'Vĩnh Long'
+      ]
+    };
+
+    const DEVELOPMENT_COLORS = {
+      developed: '#B91C1C',      // Dark Red (Tailwind red-700)
+      developing: '#F97316',     // Orange (Tailwind orange-500)
+      underdeveloped: '#FDE047', // Yellow (Tailwind yellow-300)
+      default: '#9b59b6'         // Purple (fallback for unmatched provinces)
+    };
+
+    /**
+     * Normalizes province names for consistent matching between
+     * classification data and GeoJSON properties
+     * 
+     * @param {string} name - Raw province name from GeoJSON
+     * @returns {string} - Normalized province name
+     */
+    function normalizeProvinceName(name) {
+      if (!name) return '';
+      
+      // Convert to string and trim
+      let normalized = String(name).trim();
+      
+      // Handle special case: TP. Hồ Chí Minh variations
+      if (normalized.match(/Hồ Chí Minh|Ho Chi Minh/i)) {
+        return 'TP. Hồ Chí Minh';
+      }
+      
+      // Remove common prefixes (case-insensitive)
+      normalized = normalized
+        .replace(/^Tỉnh\s+/i, '')
+        .replace(/^Thành phố\s+/i, '')
+        .replace(/^TP\.\s*/i, '');
+      
+      // Remove extra whitespace
+      normalized = normalized.replace(/\s+/g, ' ').trim();
+      
+      return normalized;
+    }
+
+    /**
+     * Gets the development color for a province based on its classification
+     * 
+     * @param {string} provinceName - Province name from GeoJSON properties
+     * @returns {string} - Hex color code
+     */
+    function getProvinceColor(provinceName) {
+      const normalized = normalizeProvinceName(provinceName);
+      
+      // Check each classification tier
+      if (PROVINCE_DEVELOPMENT_CLASSIFICATION.developed.includes(normalized)) {
+        return DEVELOPMENT_COLORS.developed;
+      }
+      
+      if (PROVINCE_DEVELOPMENT_CLASSIFICATION.developing.includes(normalized)) {
+        return DEVELOPMENT_COLORS.developing;
+      }
+      
+      if (PROVINCE_DEVELOPMENT_CLASSIFICATION.underdeveloped.includes(normalized)) {
+        return DEVELOPMENT_COLORS.underdeveloped;
+      }
+      
+      // Log unmatched provinces for debugging
+      console.warn(`Province not found in classification: "${provinceName}" (normalized: "${normalized}")`);
+      
+      return DEVELOPMENT_COLORS.default;
+    }
+
+    /**
+     * Creates and adds the legend component to the map
+     */
+    function createProvinceLegend() {
+      // Check if legend already exists
+      if (document.getElementById('provinceLegend')) {
+        return;
+      }
+      
+      const legend = document.createElement('div');
+      legend.id = 'provinceLegend';
+      legend.style.cssText = `
+        position: absolute;
+        bottom: 10px;
+        left: 10px;
+        z-index: 10;
+        background: rgba(0, 0, 0, 0.75);
+        backdrop-filter: blur(10px);
+        padding: 12px 16px;
+        border-radius: 8px;
+        color: #fff;
+        font-size: 12px;
+        font-family: 'Segoe UI', sans-serif;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+        display: none;
+      `;
+      
+      legend.innerHTML = `
+        <div style="font-weight: 600; margin-bottom: 8px; font-size: 13px;">
+          Mức độ phát triển công nghiệp
+        </div>
+        <div style="display: flex; flex-direction: column; gap: 6px; margin-bottom: 12px;">
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <div style="width: 16px; height: 16px; background: ${DEVELOPMENT_COLORS.developed}; border-radius: 2px;"></div>
+            <span>Tỉnh công nghiệp phát triển (trụ cột)</span>
+          </div>
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <div style="width: 16px; height: 16px; background: ${DEVELOPMENT_COLORS.developing}; border-radius: 2px;"></div>
+            <span>Tỉnh đang phát triển (tốc độ tăng trưởng cao)</span>
+          </div>
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <div style="width: 16px; height: 16px; background: ${DEVELOPMENT_COLORS.underdeveloped}; border-radius: 2px;"></div>
+            <span>Tỉnh chưa phát triển/tiềm năng sơ khởi</span>
+          </div>
+        </div>
+        <div style="border-top: 1px solid rgba(255, 255, 255, 0.2); padding-top: 8px;">
+          <div style="font-weight: 600; margin-bottom: 6px; font-size: 12px; opacity: 0.8;">
+            Địa điểm quan trọng
+          </div>
+          <div style="display: flex; flex-direction: column; gap: 6px;">
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <i data-lucide="factory" style="width: 16px; height: 16px; color: #ff9f1c;"></i>
+              <span>Khu công nghiệp (KCN)</span>
+            </div>
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <i data-lucide="warehouse" style="width: 16px; height: 16px; color: #2196F3;"></i>
+              <span>Cụm công nghiệp (CCN)</span>
+            </div>
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <i data-lucide="anchor" style="width: 16px; height: 16px; color: #0EA5E9;"></i>
+              <span>Cảng biển</span>
+            </div>
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <i data-lucide="plane" style="width: 16px; height: 16px; color: #8B5CF6;"></i>
+              <span>Sân bay</span>
+            </div>
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <i data-lucide="building-2" style="width: 16px; height: 16px; color: #EF4444;"></i>
+              <span>Trung tâm TP</span>
+            </div>
+          </div>
+        </div>
+      `;
+      
+      document.body.appendChild(legend);
+      
+      // Initialize Lucide icons in the legend
+      if (typeof lucide !== 'undefined') {
+        lucide.createIcons();
+      }
+    }
+
+    /**
+     * Updates legend visibility based on province layer visibility
+     */
+    function updateLegendVisibility() {
+      const legend = document.getElementById('provinceLegend');
+      if (!legend) return;
+      
+      legend.style.display = provinceVisible ? 'block' : 'none';
+    }
+
+    /**
+     * Filter State Manager
+     * Manages the state of three development level filters (developed, developing, underdeveloped)
+     * 
+     * Requirements: 2.1, 3.1, 5.1, 5.2
+     */
+    class ProvinceFilterState {
+      constructor() {
+        // Initialize all filters to true (all provinces visible by default)
+        // Requirement 3.1: Default state shows all provinces
+        this.filters = {
+          developed: true,      // Phát triển
+          developing: true,     // Đang phát triển
+          underdeveloped: true  // Chưa phát triển
+        };
+      }
+      
+      /**
+       * Toggle the state of a specific filter
+       * Requirement 2.1: Toggle visibility of provinces by development level
+       * Requirement 5.1: Independent filter control
+       * 
+       * @param {string} filterType - One of: 'developed', 'developing', 'underdeveloped'
+       */
+      toggle(filterType) {
+        if (this.filters.hasOwnProperty(filterType)) {
+          this.filters[filterType] = !this.filters[filterType];
+        }
+      }
+      
+      /**
+       * Check if a specific filter is currently active
+       * Requirement 5.2: Support all possible combinations of filter states
+       * 
+       * @param {string} filterType - One of: 'developed', 'developing', 'underdeveloped'
+       * @returns {boolean} - True if filter is active (showing provinces), false if inactive (hiding provinces)
+       */
+      isActive(filterType) {
+        return this.filters[filterType] === true;
+      }
+      
+      /**
+       * Get list of currently active filters
+       * Requirement 5.2: Support all possible combinations of filter states
+       * 
+       * @returns {string[]} - Array of active filter type names
+       */
+      getActiveFilters() {
+        return Object.entries(this.filters)
+          .filter(([_, active]) => active)
+          .map(([type, _]) => type);
+      }
+    }
+
+    /**
+     * Builds Mapbox GL JS filter expression based on filter state
+     * 
+     * This function creates a Mapbox filter expression that controls which provinces
+     * are visible on the map based on the current filter state. It handles three cases:
+     * 1. No filters active: Hide all provinces
+     * 2. All filters active: Show all provinces
+     * 3. Some filters active: Show only provinces matching active filters
+     * 
+     * Edge case handling:
+     * - Validates filter state exists
+     * - Handles missing classification data
+     * - Handles province name mismatches through normalization
+     * 
+     * Requirements: 2.2, 2.3, 5.3
+     * 
+     * @param {ProvinceFilterState} filterState - The current filter state
+     * @returns {boolean|Array} - Mapbox filter expression (true, false-equivalent, or ['in', ...])
+     */
+    function buildProvinceFilterExpression(filterState) {
+      // Edge case: Validate filter state exists
+      if (!filterState) {
+        console.warn('Filter state is null, showing all provinces');
+        return true;
+      }
+      
+      const activeFilters = filterState.getActiveFilters();
+      
+      // Case 1: No filters active - hide all provinces
+      // Requirement 5.3: Support all combinations including all off
+      // Requirement 5.3: Handle case when user turns off all filters (empty map)
+      if (activeFilters.length === 0) {
+        // Return a filter that matches nothing (empty string will never match a province name)
+        return ['==', ['get', 'display_name'], ''];
+      }
+      
+      // Case 2: All filters active - show all provinces
+      // Requirement 2.3: Optimize for common case (all visible)
+      if (activeFilters.length === 3) {
+        return true;
+      }
+      
+      // Case 3: Some filters active - build filter expression for selected provinces
+      // Requirement 2.2: Filter provinces by development level
+      const provinceNames = [];
+      
+      // Collect province names from active filter categories
+      activeFilters.forEach(filterType => {
+        const provinces = PROVINCE_DEVELOPMENT_CLASSIFICATION[filterType];
+        
+        // Edge case: Handle missing classification data
+        // Requirement 2.3: Handle case when classification data is missing
+        if (!provinces || !Array.isArray(provinces)) {
+          console.warn(`Classification data missing for filter type: ${filterType}`);
+          return;
+        }
+        
+        provinceNames.push(...provinces);
+      });
+      
+      // Edge case: If no provinces collected (shouldn't happen but defensive)
+      if (provinceNames.length === 0) {
+        console.warn('No provinces found in active filters, hiding all');
+        return ['==', ['get', 'display_name'], ''];
+      }
+      
+      // Normalize all province names for consistent matching
+      // Uses existing normalizeProvinceName() function
+      // Requirement 2.3: Handle case when province names don't match classification data
+      const normalizedNames = provinceNames.map(name => {
+        try {
+          return normalizeProvinceName(name);
+        } catch (error) {
+          console.warn(`Error normalizing province name: ${name}`, error);
+          return name; // Return original if normalization fails
+        }
+      }).filter(name => name); // Remove any null/undefined values
+      
+      // Build Mapbox 'in' expression: ['in', ['get', 'display_name'], ['literal', [array of names]]]
+      // This checks if the province's 'display_name' property is in the list of normalized names
+      return ['in', ['get', 'display_name'], ['literal', normalizedNames]];
+    }
+
+    /**
+     * Updates the UI state of a filter button
+     * 
+     * This function updates the visual appearance of a filter button to reflect
+     * whether it is active (showing provinces) or inactive (hiding provinces).
+     * 
+     * Requirements: 4.1, 4.2, 4.4
+     * 
+     * @param {HTMLElement} button - The filter button element to update
+     * @param {boolean} isActive - True if filter is active, false if inactive
+     */
+    function updateFilterUI(button, isActive) {
+      if (isActive) {
+        button.classList.add('active');
+        button.querySelector('.filter-status').textContent = '✓';
+      } else {
+        button.classList.remove('active');
+        button.querySelector('.filter-status').textContent = '✗';
+      }
+    }
+
+    /**
+     * Applies the current filter state to the province layers on the map
+     * 
+     * This function takes the current filter state, builds a Mapbox filter expression,
+     * and applies it to all province-related layers (fill, outline, and label).
+     * 
+     * Performance optimizations:
+     * - Checks layer existence before applying filters (edge case handling)
+     * - Uses requestAnimationFrame for smooth rendering
+     * - Debounced to prevent excessive updates during rapid clicks
+     * 
+     * Requirements: 2.2, 2.3, 2.5, 5.4, 6.1, 6.2, 6.3
+     * 
+     * @param {ProvinceFilterState} filterState - The current filter state
+     */
+    function applyProvinceFilter(filterState) {
+      // Edge case: Check if map is loaded and ready
+      // Requirement 2.3: Handle case when province layer not loaded
+      if (!map || !map.isStyleLoaded()) {
+        console.warn('Map not ready, filter will be applied when map loads');
+        return;
+      }
+      
+      // Edge case: Check if province layer exists before applying filter
+      // Requirement 2.3: Handle case when province layer not loaded
+      if (!map.getLayer('vn-provinces-fill')) {
+        console.warn('Province layer not found, skipping filter application');
+        return;
+      }
+      
+      // Performance: Use requestAnimationFrame for smooth rendering
+      // Requirement 6.2: Maintain smooth rendering during filter transitions
+      requestAnimationFrame(() => {
+        try {
+          // Build the filter expression based on current state
+          const filterExpression = buildProvinceFilterExpression(filterState);
+          
+          // Apply filter to all province layers
+          map.setFilter('vn-provinces-fill', filterExpression);
+          
+          // Edge case: Check if outline layer exists
+          if (map.getLayer('vn-provinces-outline')) {
+            map.setFilter('vn-provinces-outline', filterExpression);
+          }
+          
+          // Edge case: Apply to label layer only if it exists
+          // Requirement 2.3: Handle case when label layer doesn't exist
+          if (map.getLayer('vn-provinces-label')) {
+            map.setFilter('vn-provinces-label', filterExpression);
+          }
+        } catch (error) {
+          console.error('Error applying province filter:', error);
+        }
+      });
+    }
+
+    /**
+     * Reapplies the current filter state to the map
+     * 
+     * This function is called after style changes or when province layers are re-added
+     * to ensure filter state is maintained across map interactions.
+     * 
+     * Edge case handling:
+     * - Checks if filter state exists
+     * - Checks if map is ready
+     * - Checks if province layers exist
+     * 
+     * Requirements: 2.4, 5.4, 6.2
+     */
+    function reapplyProvinceFilters() {
+      // Edge case: Check if filter state exists
+      if (!globalFilterState) {
+        console.warn('Filter state not initialized, skipping reapply');
+        return;
+      }
+      
+      // Edge case: Check if map is ready
+      if (!map || !map.isStyleLoaded()) {
+        console.warn('Map not ready, skipping filter reapply');
+        return;
+      }
+      
+      // Edge case: Check if province layer exists
+      if (!map.getLayer('vn-provinces-fill')) {
+        console.warn('Province layer not found, skipping filter reapply');
+        return;
+      }
+      
+      // Reapply the filter
+      applyProvinceFilter(globalFilterState);
+    }
+
+    /**
+     * Sets up province filter event handlers
+     * 
+     * This function initializes the province filter system by:
+     * 1. Creating a ProvinceFilterState instance
+     * 2. Attaching click event listeners to the three filter buttons
+     * 3. Handling filter toggle, UI update, and map update on each click
+     * 4. Implementing debounce for rapid clicks (performance optimization)
+     * 
+     * Requirements: 2.1, 4.4, 5.1, 6.1, 6.2, 6.3
+     */
+    function setupProvinceFilters() {
+      // Initialize filter state (all filters active by default)
+      // Store globally so it can be reapplied after style changes
+      if (!globalFilterState) {
+        globalFilterState = new ProvinceFilterState();
+      }
+      
+      // Debounce timer for handling rapid clicks
+      // Requirement 6.3: Handle multiple rapid filter changes without lag
+      let filterDebounceTimer = null;
+      const DEBOUNCE_DELAY = 50; // 50ms debounce for smooth UX
+      
+      /**
+       * Debounced filter application
+       * Prevents excessive map updates during rapid clicks
+       * Requirement 6.1: Update within 300ms (50ms debounce + ~10ms render = well under 300ms)
+       */
+      function debouncedApplyFilter() {
+        clearTimeout(filterDebounceTimer);
+        filterDebounceTimer = setTimeout(() => {
+          applyProvinceFilter(globalFilterState);
+        }, DEBOUNCE_DELAY);
+      }
+      
+      // Only attach event listeners once to prevent duplicates
+      if (!filterEventsBound) {
+        // Define the three filter buttons with their IDs and filter types
+        const filterButtons = [
+          { id: 'filterDevelopedBtn', type: 'developed' },
+          { id: 'filterDevelopingBtn', type: 'developing' },
+          { id: 'filterUnderdevelopedBtn', type: 'underdeveloped' }
+        ];
+        
+        // Attach event listeners to each button
+        filterButtons.forEach(({ id, type }) => {
+          const button = document.getElementById(id);
+          if (!button) {
+            // Edge case: Button not found in DOM
+            console.warn(`Filter button ${id} not found`);
+            return;
+          }
+          
+          button.addEventListener('click', () => {
+            // Toggle the filter state
+            globalFilterState.toggle(type);
+            
+            // Update the button UI immediately for responsive feel
+            // Requirement 4.4: Update button state immediately upon user interaction
+            updateFilterUI(button, globalFilterState.isActive(type));
+            
+            // Apply the filter to the map with debouncing
+            // This prevents lag during rapid clicks while maintaining responsiveness
+            debouncedApplyFilter();
+          });
+        });
+        
+        filterEventsBound = true;
+      }
+      
+      // Apply initial filter state to the map
+      // Edge case: Only apply if map and layers are ready
+      if (map && map.isStyleLoaded() && map.getLayer('vn-provinces-fill')) {
+        applyProvinceFilter(globalFilterState);
+      }
+    }
+
+    mapboxgl.accessToken = MAPBOX_TOKEN;
+    const map = new mapboxgl.Map({
+      container: 'map',
+      style: BASE_STYLE_STREET, // mặc định nền streets
+      center: [105.8342, 21.0278], // Hà Nội
+      zoom: 5.3,
+      pitch: 0,
+    });
+
+    map.addControl(new mapboxgl.NavigationControl(), 'bottom-right');
+
+    // Custom search (OSM + KCN/CCN)
+    const searchInput = document.getElementById('searchInput');
+    const searchBtn = document.getElementById('searchBtn');
+    const suggestionEl = document.getElementById('searchSuggestion');
+    searchBtn.addEventListener('click', () => handleSearch(searchInput.value));
+    searchInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        handleSearch(searchInput.value);
+      }
+    });
+    let searchTimer = null;
+    searchInput.addEventListener('input', () => {
+      const val = searchInput.value;
+      clearTimeout(searchTimer);
+      searchTimer = setTimeout(() => {
+        if (!val.trim()) {
+          showDefaultSuggestions();
+          return;
+        }
+        handleSearch(val, false);
+      }, 250);
+    });
+    searchInput.addEventListener('focus', () => {
+      if (!searchInput.value.trim()) {
+        showDefaultSuggestions();
+      }
+    });
+
+
+
+    const draw = new MapboxDraw({
+      displayControlsDefault: false,
+      controls: {
+        point: true,
+        polygon: true,
+        trash: true,
+      },
+    });
+    map.addControl(draw);
+
+    const coordsEl = document.getElementById('coords');
+    const layerStatusEl = document.getElementById('layerStatus');
+    const toggleProvinceBtn = document.getElementById('toggleProvinceBtn');
+    const toggleCartoBtn = document.getElementById('toggleCartoBtn');
+    const radiusInput = document.getElementById('radiusInput');
+    const searchFromGeocoderBtn = document.getElementById('searchFromGeocoderBtn');
+    const searchFromSelectedBtn = document.getElementById('searchFromSelectedBtn');
+    const searchResultEl = document.getElementById('searchResult');
+    const searchListEl = document.getElementById('searchList');
+    let provinceVisible = true; // BẬT mặc định để hiển thị lớp tỉnh thành
+    let markerEventsBound = false;
+    let industrialGeojson = null;
+    let provinceGeojson = null;
+    let provinceLabelGeojson = null;
+    let currentBaseStyle = BASE_STYLE_STREET;
+    let lastGeocoderPoint = null;
+    let globalFilterState = null; // Store filter state globally for reapplication
+    let filterEventsBound = false; // Track if filter event listeners are already attached
+    let lastSelectedIndustrial = null;
+    let lastSearchQuery = '';
+    
+    // GPS/Geolocation variables
+    let userLocationMarker = null;
+    let userLocation = null;
+    let watchId = null;
+    let isTrackingLocation = false;
+
+    function copyToClipboard(text) {
+      navigator.clipboard?.writeText(text).catch(() => {
+        // fallback for insecure context
+      });
+    }
+
+    // ==================== GPS/GEOLOCATION FUNCTIONS ====================
+    
+    /**
+     * Get user's current location using Geolocation API
+     */
+    function getUserLocation() {
+      const gpsButton = document.getElementById('gpsButton');
+      
+      if (!navigator.geolocation) {
+        alert('❌ Trình duyệt của bạn không hỗ trợ GPS/Geolocation');
+        return;
+      }
+
+      // Show loading state
+      gpsButton.classList.add('loading');
+      
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          const { latitude, longitude, accuracy } = position.coords;
+          
+          userLocation = {
+            lat: latitude,
+            lng: longitude,
+            accuracy: accuracy
+          };
+          
+          // Update UI
+          gpsButton.classList.remove('loading');
+          gpsButton.classList.add('active');
+          
+          // Show user location on map
+          showUserLocation(longitude, latitude, accuracy);
+          
+          // Fly to user location
+          map.flyTo({
+            center: [longitude, latitude],
+            zoom: 14,
+            duration: 1500
+          });
+          
+          console.log(`📍 Vị trí người dùng: ${latitude.toFixed(6)}, ${longitude.toFixed(6)} (±${Math.round(accuracy)}m)`);
+        },
+        (error) => {
+          gpsButton.classList.remove('loading');
+          
+          let errorMessage = '';
+          switch (error.code) {
+            case error.PERMISSION_DENIED:
+              errorMessage = '❌ Bạn đã từ chối quyền truy cập vị trí.\n\nVui lòng cho phép truy cập vị trí trong cài đặt trình duyệt.';
+              break;
+            case error.POSITION_UNAVAILABLE:
+              errorMessage = '❌ Không thể xác định vị trí của bạn.\n\nVui lòng kiểm tra kết nối GPS/mạng.';
+              break;
+            case error.TIMEOUT:
+              errorMessage = '❌ Hết thời gian chờ xác định vị trí.\n\nVui lòng thử lại.';
+              break;
+            default:
+              errorMessage = '❌ Lỗi không xác định khi lấy vị trí.';
+          }
+          
+          alert(errorMessage);
+          console.error('Geolocation error:', error);
+        },
+        {
+          enableHighAccuracy: true,
+          timeout: 10000,
+          maximumAge: 0
+        }
+      );
+    }
+
+    /**
+     * Show user location marker on map with accuracy circle
+     */
+    function showUserLocation(lng, lat, accuracy) {
+      // Remove old marker if exists
+      if (userLocationMarker) {
+        userLocationMarker.remove();
+      }
+
+      // Create custom marker element for user location
+      const el = document.createElement('div');
+      el.style.width = '20px';
+      el.style.height = '20px';
+      el.style.borderRadius = '50%';
+      el.style.backgroundColor = '#3B82F6';
+      el.style.border = '3px solid #fff';
+      el.style.cursor = 'pointer';
+      el.style.boxShadow = '0 2px 6px rgba(0,0,0,0.3)';
+      el.style.animation = 'locationPulse 2s infinite';
+      
+      // Create marker
+      userLocationMarker = new mapboxgl.Marker(el)
+        .setLngLat([lng, lat])
+        .addTo(map);
+      
+      // Add popup with location info
+      const popup = new mapboxgl.Popup({ offset: 25, closeButton: true })
+        .setHTML(`
+          <div style="font-family: 'Segoe UI', sans-serif; min-width: 200px;">
+            <h3 style="margin: 0 0 8px 0; color: #3B82F6; font-size: 14px; display: flex; align-items: center; gap: 6px;">
+              <i data-lucide="navigation" style="width: 16px; height: 16px;"></i>
+              Vị trí của bạn
+            </h3>
+            <p style="margin: 4px 0; font-size: 12px; color: #666;">
+              <strong>📍 Tọa độ:</strong><br>
+              ${lat.toFixed(6)}°N, ${lng.toFixed(6)}°E
+            </p>
+            <p style="margin: 4px 0; font-size: 12px; color: #666;">
+              <strong>🎯 Độ chính xác:</strong> ±${Math.round(accuracy)}m
+            </p>
+            <button onclick="findNearbyIndustrialZones()" style="
+              margin-top: 8px;
+              width: 100%;
+              padding: 8px;
+              background: #3B82F6;
+              color: white;
+              border: none;
+              border-radius: 4px;
+              cursor: pointer;
+              font-size: 12px;
+              font-weight: 600;
+            ">
+              🏭 Tìm KCN/CCN gần đây
+            </button>
+          </div>
+        `);
+      
+      userLocationMarker.setPopup(popup);
+      
+      // Show popup immediately
+      setTimeout(() => {
+        if (typeof lucide !== 'undefined') {
+          lucide.createIcons();
+        }
+      }, 100);
+      
+      // Add accuracy circle
+      addAccuracyCircle(lng, lat, accuracy);
+    }
+
+    /**
+     * Add accuracy circle around user location
+     */
+    function addAccuracyCircle(lng, lat, accuracy) {
+      // Remove old circle if exists
+      if (map.getLayer('user-location-circle')) {
+        map.removeLayer('user-location-circle');
+      }
+      if (map.getSource('user-location-circle')) {
+        map.removeSource('user-location-circle');
+      }
+
+      // Create circle (approximate using polygon)
+      const radiusInKm = accuracy / 1000;
+      const points = 64;
+      const coords = [];
+      
+      for (let i = 0; i < points; i++) {
+        const angle = (i / points) * 2 * Math.PI;
+        const dx = radiusInKm * Math.cos(angle) / 111.32; // 1 degree ≈ 111.32 km
+        const dy = radiusInKm * Math.sin(angle) / (111.32 * Math.cos(lat * Math.PI / 180));
+        coords.push([lng + dx, lat + dy]);
+      }
+      coords.push(coords[0]); // Close the polygon
+
+      map.addSource('user-location-circle', {
+        type: 'geojson',
+        data: {
+          type: 'Feature',
+          geometry: {
+            type: 'Polygon',
+            coordinates: [coords]
+          }
+        }
+      });
+
+      map.addLayer({
+        id: 'user-location-circle',
+        type: 'fill',
+        source: 'user-location-circle',
+        paint: {
+          'fill-color': '#3B82F6',
+          'fill-opacity': 0.1
+        }
+      });
+
+      map.addLayer({
+        id: 'user-location-circle-outline',
+        type: 'line',
+        source: 'user-location-circle',
+        paint: {
+          'line-color': '#3B82F6',
+          'line-width': 2,
+          'line-opacity': 0.5
+        }
+      });
+    }
+
+    /**
+     * Find nearby industrial zones from user location
+     */
+    function findNearbyIndustrialZones() {
+      console.log('🔍 findNearbyIndustrialZones() called');
+      
+      if (!userLocation) {
+        console.error('❌ No user location');
+        alert('❌ Vui lòng bật GPS để xác định vị trí của bạn trước');
+        return;
+      }
+
+      if (!industrialGeojson || !industrialGeojson.features) {
+        console.error('❌ No industrial data');
+        alert('❌ Dữ liệu KCN/CCN chưa được tải');
+        return;
+      }
+
+      // Set cứng 50km cho đến khi sửa lại
+      const radius = 50; // km
+      const results = [];
+
+      console.log(`🔍 Tìm KCN/CCN trong bán kính ${radius}km từ vị trí (${userLocation.lat.toFixed(4)}, ${userLocation.lng.toFixed(4)})`);
+      console.log(`📊 Tổng số KCN/CCN: ${industrialGeojson.features.length}`);
+
+      for (const feature of industrialGeojson.features) {
+        const coords = feature.geometry?.coordinates;
+        if (!coords || coords.length < 2) continue;
+
+        // haversineDistance expects [lon, lat] format
+        const distance = haversineDistance(
+          [userLocation.lng, userLocation.lat],
+          coords
+        );
+
+        if (distance <= radius) {
+          results.push({
+            feature: feature,
+            distance: distance,
+            name: feature.properties?.name || 'KCN/CCN',
+            province: feature.properties?.province || '',
+            acreage: feature.properties?.acreage || 0
+          });
+        }
+      }
+
+      console.log(`✅ Tìm thấy ${results.length} KCN/CCN trong bán kính ${radius}km`);
+
+      // Sort by distance
+      results.sort((a, b) => a.distance - b.distance);
+
+      // Log top 5 nearest
+      if (results.length > 0) {
+        console.log('📍 Top 5 KCN/CCN gần nhất:');
+        results.slice(0, 5).forEach((item, i) => {
+          console.log(`  ${i + 1}. ${item.name} - ${item.distance.toFixed(1)}km`);
+        });
+      }
+
+      // Display results
+      displayNearbyResults(results, userLocation, radius);
+    }
+
+    /**
+     * Display nearby search results
+     */
+    function displayNearbyResults(results, fromLocation, radius) {
+      const searchResultEl = document.getElementById('searchResultSidebar');
+      const searchListEl = document.getElementById('searchListSidebar');
+
+      if (results.length === 0) {
+        searchResultEl.innerHTML = `
+          <div style="color: #EF4444; font-weight: 600;">
+            ❌ Không tìm thấy KCN/CCN nào trong bán kính ${radius} km
+          </div>
+        `;
+        searchListEl.style.display = 'none';
+        return;
+      }
+
+      searchResultEl.innerHTML = `
+        <div style="color: #10B981; font-weight: 600;">
+          ✅ Tìm thấy ${results.length} KCN/CCN trong bán kính ${radius} km
+        </div>
+      `;
+
+      // Store results globally for click handlers
+      window.nearbySearchResults = results;
+
+      searchListEl.innerHTML = results.slice(0, 20).map((item, index) => `
+        <div style="
+          padding: 8px;
+          margin-bottom: 6px;
+          background: rgba(255, 255, 255, 0.05);
+          border-radius: 4px;
+          cursor: pointer;
+          border-left: 3px solid #3B82F6;
+          transition: background 0.2s;
+        " onmouseover="this.style.background='rgba(255,255,255,0.1)'" 
+           onmouseout="this.style.background='rgba(255,255,255,0.05)'"
+           onclick="focusOnNearbyResult(${index})">
+          <div style="font-weight: 600; font-size: 13px; margin-bottom: 4px;">
+            ${index + 1}. ${item.name}
+          </div>
+          <div style="font-size: 11px; color: rgba(255,255,255,0.7);">
+            📍 ${item.distance.toFixed(1)} km • ${item.province}
+            ${item.acreage ? ` • ${item.acreage} ha` : ''}
+          </div>
+        </div>
+      `).join('');
+
+      searchListEl.style.display = 'block';
+
+      // Open sidebar if closed
+      const sidebar = document.getElementById('mainSidebar');
+      if (sidebar.style.left !== '0px') {
+        sidebar.style.left = '0px';
+      }
+
+      // Switch to search tab
+      document.querySelectorAll('.sidebar-tab').forEach(tab => {
+        tab.classList.remove('active');
+        tab.style.color = 'rgba(255, 255, 255, 0.6)';
+        tab.style.borderBottomColor = 'transparent';
+      });
+      document.querySelector('[data-tab="search"]').classList.add('active');
+      document.querySelector('[data-tab="search"]').style.color = '#fff';
+      document.querySelector('[data-tab="search"]').style.borderBottomColor = '#3B82F6';
+
+      document.querySelectorAll('.tab-content').forEach(content => {
+        content.style.display = 'none';
+      });
+      document.getElementById('searchTab').style.display = 'block';
+    }
+
+    /**
+     * Focus on a nearby search result by index
+     */
+    function focusOnNearbyResult(index) {
+      if (!window.nearbySearchResults || !window.nearbySearchResults[index]) {
+        console.error('Invalid result index:', index);
+        return;
+      }
+
+      const result = window.nearbySearchResults[index];
+      console.log('Focusing on:', result.name);
+      
+      // Use the existing focusOnIndustrialFeature function
+      focusOnIndustrialFeature(result.feature);
+    }
+
+    // Make function global
+    window.focusOnNearbyResult = focusOnNearbyResult;
+
+    /**
+     * Use user location as origin for routing
+     */
+    function useLocationAsOrigin() {
+      if (!userLocation) {
+        alert('❌ Vui lòng bật GPS để xác định vị trí của bạn trước');
+        return;
+      }
+
+      // Switch to routing tab
+      document.querySelectorAll('.sidebar-tab').forEach(tab => {
+        tab.classList.remove('active');
+        tab.style.color = 'rgba(255, 255, 255, 0.6)';
+        tab.style.borderBottomColor = 'transparent';
+      });
+      document.querySelector('[data-tab="routing"]').classList.add('active');
+      document.querySelector('[data-tab="routing"]').style.color = '#fff';
+      document.querySelector('[data-tab="routing"]').style.borderBottomColor = '#3B82F6';
+
+      document.querySelectorAll('.tab-content').forEach(content => {
+        content.style.display = 'none';
+      });
+      document.getElementById('routingTab').style.display = 'block';
+
+      // Set origin in route panel
+      if (window.routePanel) {
+        window.routePanel.setOrigin({
+          id: 'user-location',
+          name: `Vị trí của tôi (${userLocation.lat.toFixed(4)}°, ${userLocation.lng.toFixed(4)}°)`,
+          coordinates: [userLocation.lng, userLocation.lat],
+          type: 'origin'
+        });
+      }
+    }
+
+    /**
+     * Set manual location (for testing or when GPS is inaccurate)
+     */
+    function setManualLocation() {
+      // Prompt for coordinates
+      const input = prompt(
+        '📍 Nhập tọa độ vị trí của bạn:\n\n' +
+        'Format: latitude, longitude\n' +
+        'Ví dụ: 21.0285, 105.8542 (Hà Nội)\n\n' +
+        'Hoặc click vào bản đồ để chọn vị trí',
+        userLocation ? `${userLocation.lat}, ${userLocation.lng}` : '21.0285, 105.8542'
+      );
+      
+      if (!input) return;
+      
+      // Parse coordinates
+      const parts = input.split(',').map(s => s.trim());
+      if (parts.length !== 2) {
+        alert('❌ Format không đúng. Vui lòng nhập: latitude, longitude\nVí dụ: 21.0285, 105.8542');
+        return;
+      }
+      
+      const lat = parseFloat(parts[0]);
+      const lng = parseFloat(parts[1]);
+      
+      if (isNaN(lat) || isNaN(lng)) {
+        alert('❌ Tọa độ không hợp lệ. Vui lòng nhập số.');
+        return;
+      }
+      
+      if (lat < -90 || lat > 90 || lng < -180 || lng > 180) {
+        alert('❌ Tọa độ nằm ngoài phạm vi hợp lệ.\nLatitude: -90 đến 90\nLongitude: -180 đến 180');
+        return;
+      }
+      
+      // Set user location
+      userLocation = {
+        lat: lat,
+        lng: lng,
+        accuracy: 50 // Assume 50m accuracy for manual input
+      };
+      
+      // Update UI
+      const gpsButton = document.getElementById('gpsButton');
+      gpsButton.classList.add('active');
+      
+      // Show user location on map
+      showUserLocation(lng, lat, 50);
+      
+      // Fly to location
+      map.flyTo({
+        center: [lng, lat],
+        zoom: 14,
+        duration: 1500
+      });
+      
+      console.log(`📍 Vị trí thủ công: ${lat.toFixed(6)}, ${lng.toFixed(6)}`);
+      
+      // Show success message
+      setTimeout(() => {
+        alert('✅ Đã đặt vị trí thủ công!\n\nBạn có thể dùng "Tìm KCN/CCN gần tôi" ngay bây giờ.');
+      }, 500);
+    }
+
+    /**
+     * Enable click-to-set-location mode
+     */
+    function enableClickToSetLocation() {
+      alert('📍 Click vào bản đồ để đặt vị trí của bạn');
+      
+      // Add one-time click handler
+      const clickHandler = (e) => {
+        const { lng, lat } = e.lngLat;
+        
+        // Set user location
+        userLocation = {
+          lat: lat,
+          lng: lng,
+          accuracy: 50
+        };
+        
+        // Update UI
+        const gpsButton = document.getElementById('gpsButton');
+        gpsButton.classList.add('active');
+        
+        // Show user location
+        showUserLocation(lng, lat, 50);
+        
+        console.log(`📍 Vị trí đã chọn: ${lat.toFixed(6)}, ${lng.toFixed(6)}`);
+        
+        // Remove handler
+        map.off('click', clickHandler);
+        
+        // Show success
+        setTimeout(() => {
+          alert('✅ Đã đặt vị trí!\n\nBạn có thể dùng "Tìm KCN/CCN gần tôi" ngay bây giờ.');
+        }, 500);
+      };
+      
+      map.on('click', clickHandler);
+    }
+
+    // Make functions global
+    window.setManualLocation = setManualLocation;
+    window.enableClickToSetLocation = enableClickToSetLocation;
+
+    // Custom search handlers (OSM + KCN/CCN + Strategic Locations)
+    async function handleSearch(query, autoFocus = true) {
+      const q = (query || '').trim();
+      lastSearchQuery = q;
+      if (q.length < 2) {
+        suggestionEl.style.display = 'none';
+        return;
+      }
+      suggestionEl.style.display = 'block';
+      suggestionEl.innerHTML = 'Đang tìm...';
+      const [izMatches, osmMatches, strategicMatches] = await Promise.all([
+        Promise.resolve(localSearchIndustrial(q)),
+        nominatimFetch(q),
+        enhanceSearchWithStrategicLocations(q),
+      ]);
+      const combined = [...izMatches, ...strategicMatches, ...osmMatches].slice(0, 10);
+      if (!combined.length) {
+        suggestionEl.innerHTML = 'Không tìm thấy.';
+        return;
+      }
+      renderSuggestions(combined);
+      if (autoFocus) focusSuggestion(combined[0]);
+    }
+
+    function renderSuggestions(items) {
+      suggestionEl.style.display = 'block';
+      suggestionEl.innerHTML = items
+        .map((item, idx) => `<div data-idx="${idx}">${item.label}</div>`)
+        .join('');
+      suggestionEl.querySelectorAll('div').forEach((el) => {
+        el.addEventListener('click', () => {
+          const idx = Number(el.dataset.idx || 0);
+          focusSuggestion(items[idx]);
+        });
+      });
+    }
+
+    function focusSuggestion(item) {
+      if (!item) return;
+      suggestionEl.style.display = 'none';
+      if (item.type === 'iz') {
+        focusOnIndustrialFeature(item.feature);
+        lastGeocoderPoint = item.coords;
+        return;
+      }
+      if (item.type === 'strategic') {
+        // Handle strategic location selection
+        lastGeocoderPoint = item.coords;
+        map.flyTo({ center: item.coords, zoom: Math.max(map.getZoom(), 13), speed: 0.8 });
+        
+        // Show popup for strategic location
+        const popupContent = `
+          <div style="font-family: 'Segoe UI', sans-serif;">
+            <strong style="font-size: 14px;">${item.label}</strong><br>
+            <em style="color: #666; font-size: 12px;">Địa điểm quan trọng</em><br>
+            <div style="margin-top: 8px; font-size: 11px; color: #888;">
+              ${item.coords[1].toFixed(6)}, ${item.coords[0].toFixed(6)}
+            </div>
+          </div>
+        `;
+        
+        new mapboxgl.Popup({ closeButton: true })
+          .setLngLat(item.coords)
+          .setHTML(popupContent)
+          .addTo(map);
+        return;
+      }
+      if (item.type === 'osm' && item.coords?.length === 2) {
+        lastGeocoderPoint = item.coords;
+        map.flyTo({ center: item.coords, zoom: Math.max(map.getZoom(), 11), speed: 0.8 });
+        new mapboxgl.Popup({ closeButton: true })
+          .setLngLat(item.coords)
+          .setHTML(`<strong>${item.label}</strong><br><em>OSM</em>`)
+          .addTo(map);
+      }
+    }
+
+    function showDefaultSuggestions() {
+      if (!industrialGeojson?.features?.length) return;
+      const items = industrialGeojson.features.slice(0, 8).map((feature) => ({
+        type: "iz",
+        label: feature.properties?.name || "KCN/CCN",
+        coords: feature.geometry?.coordinates,
+        feature,
+      }));
+      renderSuggestions(items);
+    }
+
+    map.on('click', (e) => {
+      // Đóng popup hiện tại nếu có
+      if (currentPopup) {
+        currentPopup.remove();
+        currentPopup = null;
+      }
+      
+      // Custom markers handle their own clicks, so just handle map clicks
+      const { lng, lat } = e.lngLat.wrap();
+      const coordStr = `${lng.toFixed(6)}, ${lat.toFixed(6)}`;
+      coordsEl.textContent = coordStr;
+      lastGeocoderPoint = [lng, lat];
+
+      new mapboxgl.Popup()
+        .setLngLat([lng, lat])
+        .setHTML(`<strong>Tọa độ:</strong><br>${coordStr}`)
+        .addTo(map);
+
+      copyToClipboard(coordStr);
+    });
+
+    document.getElementById('exportBtn').addEventListener('click', () => {
+      const data = draw.getAll();
+      if (!data.features.length) {
+        alert('Chưa có đối tượng nào được vẽ.');
+        return;
+      }
+      const geojson = JSON.stringify(data, null, 2);
+      const blob = new Blob([geojson], { type: 'application/vnd.geo+json' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = 'industrial_zones.geojson';
+      link.click();
+      URL.revokeObjectURL(url);
+    });
+
+    map.on('load', () => {
+      layerStatusEl.textContent = 'Bản đồ đã sẵn sàng';
+      
+      // Load province boundaries by default
+      loadProvinceBoundaries();
+      addMaritimeClaims();
+      
+      // Load industrial zones data (but don't display markers yet)
+      // This ensures search functionality works immediately
+      loadIndustrialZones();
+      
+      // Ẩn các label xâm phạm chủ quyền
+      hideOffensiveLabels();
+      
+      // Create and initialize legend
+      createProvinceLegend();
+      updateLegendVisibility();
+    });
+    
+    // Hàm ẩn các label text xâm phạm chủ quyền
+    function hideOffensiveLabels() {
+      const offensiveTerms = [
+        'South China Sea',
+        'Paracel Islands', 
+        'Spratly Islands',
+        'Scarborough Shoal'
+      ];
+      
+      // Ẩn các layer chứa text nhạy cảm
+      map.on('styledata', () => {
+        const layers = map.getStyle().layers;
+        layers.forEach(layer => {
+          if (layer.type === 'symbol' && layer.layout && layer.layout['text-field']) {
+            // Kiểm tra nếu layer có thể chứa text nhạy cảm
+            const layerId = layer.id;
+            if (layerId.includes('marine') || layerId.includes('water') || 
+                layerId.includes('ocean') || layerId.includes('sea')) {
+              map.setLayoutProperty(layerId, 'visibility', 'none');
+            }
+          }
+        });
+      });
+    }
+
+    toggleCartoBtn.textContent = currentBaseStyle === BASE_STYLE_SAT
+      ? 'Chuyển nền streets'
+      : 'Chuyển nền satellite';
+
+    toggleProvinceBtn.addEventListener('click', () => {
+      provinceVisible = !provinceVisible;
+      toggleProvinceBtn.textContent = provinceVisible ? 'Ẩn lớp tỉnh' : 'Hiện lớp tỉnh';
+      toggleProvinceLayer(provinceVisible);
+    });
+
+    toggleCartoBtn.addEventListener('click', () => {
+      // Cycle through 3 base map styles: Streets → Satellite → Tencent
+      if (currentBaseStyle === BASE_STYLE_STREET) {
+        currentBaseStyle = BASE_STYLE_SAT;
+        toggleCartoBtn.innerHTML = '<i data-lucide="chevrons-right" style="width: 16px; height: 16px;"></i> Chuyển nền';
+      } else if (currentBaseStyle === BASE_STYLE_SAT) {
+        currentBaseStyle = BASE_STYLE_TENCENT;
+        toggleCartoBtn.innerHTML = '<i data-lucide="chevrons-right" style="width: 16px; height: 16px;"></i> Chuyển nền';
+      } else {
+        currentBaseStyle = BASE_STYLE_STREET;
+        toggleCartoBtn.innerHTML = '<i data-lucide="chevrons-right" style="width: 16px; height: 16px;"></i> Chuyển nền';
+      }
+      
+      const needProvince = !!provinceGeojson;
+      const needIndustrial = !!industrialGeojson;
+      map.setStyle(currentBaseStyle);
+      map.once('styledata', () => {
+        if (needProvince) {
+          addProvinceLayer(provinceGeojson);
+        } else {
+          loadProvinceBoundaries();
+        }
+        addMaritimeClaims();
+        if (needIndustrial) {
+          addIndustrialLayer(industrialGeojson);
+        } else {
+          loadIndustrialZones();
+        }
+        // Re-initialize Lucide icons after style change
+        if (typeof lucide !== 'undefined') {
+          lucide.createIcons();
+        }
+      });
+    });
+
+    searchFromGeocoderBtn.addEventListener('click', () => {
+      const radius = Number(radiusInput.value) || 0;
+      if (!lastGeocoderPoint) {
+        alert('Hãy tìm một vị trí (geocoder) trước.');
+        return;
+      }
+      runNearbySearch(lastGeocoderPoint, radius, 'vị trí tìm kiếm');
+    });
+
+    searchFromSelectedBtn.addEventListener('click', () => {
+      const radius = Number(radiusInput.value) || 0;
+      if (!lastSelectedIndustrial) {
+        alert('Hãy click chọn một KCN/CCN trước.');
+        return;
+      }
+      const coords = lastSelectedIndustrial.geometry?.coordinates;
+      runNearbySearch(coords, radius, lastSelectedIndustrial.properties?.name || 'điểm đã chọn');
+    });
+
+    async function loadIndustrialZones() {
+      console.log('loadIndustrialZones() start →', DATA_URL);
+      try {
+        const response = await fetch(DATA_URL, { cache: 'no-store' });
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        const geojson = await response.json();
+        if (!geojson.features?.length) {
+          layerStatusEl.textContent = 'Không có dữ liệu khu CN.';
+          return;
+        }
+        
+        // Store data globally for search functionality
+        industrialGeojson = geojson;
+        console.log('✅ Industrial zones data loaded:', geojson.features.length, 'features');
+        
+        // Only add markers if layer is visible
+        const shouldShowMarkers = strategicLocationsSystem?.layerManager?.isLayerVisible('industrial-zones') ?? false;
+        if (shouldShowMarkers) {
+          addIndustrialLayer(geojson);
+          layerStatusEl.textContent = `Đang hiển thị ${geojson.features.length} khu CN/Cụm CN`;
+          zoomToData(geojson);
+        } else {
+          layerStatusEl.textContent = `Đã tải ${geojson.features.length} khu CN/Cụm CN (đang ẩn)`;
+        }
+        
+        // Update industrial count in sidebar
+        updateIndustrialCount();
+      } catch (error) {
+        console.error('Load GeoJSON failed', error);
+        layerStatusEl.textContent = 'Không tải được industrial_zones.geojson';
+      }
+    }
+
+    async function loadProvinceBoundaries() {
+      try {
+        const response = await fetch(PROVINCE_DATA_URL, { cache: 'default' });
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        const geojson = await response.json();
+        geojson.features = geojson.features?.map((feature, idx) => {
+          const props = feature.properties || {};
+          const provinceName = props.ten_tinh || props.name || props.NAME_1 || 'Không rõ';
+          const color = getProvinceColor(provinceName);
+          feature.properties = {
+            ...props,
+            color,
+            display_name: provinceName,
+            members: props.members || [],
+          };
+          return feature;
+        }) || [];
+        const labelFeatures = geojson.features.map((feature) => ({
+          type: 'Feature',
+          geometry: {
+            type: 'Point',
+            coordinates: computeCentroid(feature.geometry),
+          },
+          properties: {
+            display_name: feature.properties.display_name,
+            color: feature.properties.color,
+          },
+        }));
+        provinceGeojson = geojson;
+        provinceLabelGeojson = { type: 'FeatureCollection', features: labelFeatures };
+        addProvinceLayer(geojson);
+        
+        // Initialize province filters after layers are added
+        setupProvinceFilters();
+      } catch (error) {
+        console.error('Load provinces failed', error);
+      }
+    }
+
+    let industrialMarkers = []; // Lưu trữ các custom marker
+    let currentPopup = null; // Lưu popup hiện tại
+    const MIN_ZOOM_FOR_MARKERS = 5; // Chỉ hiện marker khi zoom >= 5
+
+    function addIndustrialLayer(data) {
+      industrialGeojson = data;
+      
+      // Sắp xếp features theo diện tích (lớn nhất trước)
+      const sortedFeatures = [...data.features].sort((a, b) => {
+        const areaA = parseFloat(a.properties?.acreage) || 0;
+        const areaB = parseFloat(b.properties?.acreage) || 0;
+        return areaB - areaA; // Giảm dần
+      });
+      
+      // Xóa các marker cũ nếu có
+      industrialMarkers.forEach(m => m.remove());
+      industrialMarkers = [];
+
+      // Kiểm tra xem layer có được bật không
+      const shouldShowMarkers = strategicLocationsSystem?.layerManager?.isLayerVisible('industrial-zones') ?? false;
+
+      console.log(`🏭 Creating markers for ${sortedFeatures.length} industrial zones...`);
+      
+      // TẠO MARKERS THEO BATCH để không block UI
+      const BATCH_SIZE = 50; // Tạo 50 markers mỗi lần
+      let currentBatch = 0;
+      
+      function createMarkerBatch() {
+        const start = currentBatch * BATCH_SIZE;
+        const end = Math.min(start + BATCH_SIZE, sortedFeatures.length);
+        
+        for (let index = start; index < end; index++) {
+          const feature = sortedFeatures[index];
+          const coords = feature.geometry?.coordinates;
+          if (!coords || coords.length !== 2) continue;
+
+          const props = feature.properties || {};
+          const kind = props.kind || '';
+          
+          // Xác định màu và icon dựa trên kind
+          let color, bgColor, icon;
+          if (kind.includes('Khu công nghiệp') || kind.includes('KCN')) {
+            color = '#ff9f1c'; // Cam cho KCN
+            bgColor = '#fff'; // Background trắng
+            icon = 'factory';
+          } else if (kind.includes('Cụm công nghiệp') || kind.includes('CCN')) {
+            color = '#2196F3'; // Xanh dương cho CCN
+            bgColor = '#fff'; // Background trắng
+            icon = 'warehouse';
+          } else {
+            color = '#ff9f1c'; // Mặc định cam
+            bgColor = '#fff';
+            icon = 'factory';
+          }
+
+          // Tạo marker element
+          const el = document.createElement('div');
+          el.className = 'custom-industrial-marker';
+          el.style.width = '36px';
+          el.style.height = '36px';
+          el.style.borderRadius = '50%';
+          el.style.backgroundColor = bgColor;
+          el.style.border = `3px solid ${color}`;
+          el.style.cursor = 'pointer';
+          el.style.display = 'none'; // Ẩn mặc định, sẽ hiện dựa trên zoom
+          el.style.alignItems = 'center';
+          el.style.justifyContent = 'center';
+          el.style.boxShadow = '0 2px 6px rgba(0,0,0,0.3)';
+          
+          // Add Lucide icon
+          el.innerHTML = `<i data-lucide="${icon}" style="width: 20px; height: 20px; color: ${color};"></i>`;
+
+          // Click event
+          el.addEventListener('click', (e) => {
+            e.stopPropagation(); // Ngăn event lan ra map
+            
+            // Đóng popup cũ nếu có
+            if (currentPopup) {
+              currentPopup.remove();
+            }
+            
+            lastSelectedIndustrial = feature;
+            const googleUrl = `https://www.google.com/maps/search/?api=1&query=${coords[1]},${coords[0]}`;
+            const popupHtml = `
+              <div style="font-family: Arial; min-width: 250px;">
+                <h3 style="margin: 0 0 10px 0; color: ${color}; font-size: 16px;">${props.name || 'Không xác định'}</h3>
+                ${props.kind ? `<p style="margin: 5px 0; font-size: 13px;"><strong>Loại:</strong> <em>${props.kind}</em></p>` : ''}
+                ${props.address ? `<p style="margin: 5px 0; font-size: 13px;"><strong>📍 Địa chỉ:</strong> ${props.address}</p>` : ''}
+                ${props.acreage ? `<p style="margin: 5px 0; font-size: 13px;"><strong>📏 Diện tích:</strong> ${props.acreage} ha</p>` : ''}
+                ${props.price ? `<p style="margin: 5px 0; font-size: 13px;"><strong>💰 Giá thuê:</strong> ${props.price}</p>` : ''}
+                <p style="margin: 5px 0; font-size: 12px; color: #666;"><strong>🗺️ Tọa độ:</strong> ${coords[1].toFixed(6)}°N, ${coords[0].toFixed(6)}°E</p>
+                ${props.url ? `<a href="${props.url}" target="_blank" rel="noopener" style="display: inline-block; margin-top: 8px; padding: 6px 12px; background: #0066cc; color: white; text-decoration: none; border-radius: 4px; font-size: 12px;">Xem chi tiết</a>` : ''}
+                <a href="${googleUrl}" target="_blank" rel="noopener" style="display: inline-block; margin-top: 8px; margin-left: 6px; padding: 6px 12px; background: #4CAF50; color: white; text-decoration: none; border-radius: 4px; font-size: 12px;">📍 Google Maps</a>
+                <button onclick="window.addToRouting && window.addToRouting('${props.name?.replace(/'/g, "\\'")}', [${coords[0]}, ${coords[1]}], 'origin')" style="display: inline-block; margin-top: 8px; margin-left: 6px; padding: 6px 12px; background: #2196F3; color: white; border: none; border-radius: 4px; font-size: 12px; cursor: pointer;">🚗 Đặt làm điểm xuất phát</button>
+                <button onclick="window.addToRouting && window.addToRouting('${props.name?.replace(/'/g, "\\'")}', [${coords[0]}, ${coords[1]}], 'destination')" style="display: inline-block; margin-top: 8px; margin-left: 6px; padding: 6px 12px; background: #FF9800; color: white; border: none; border-radius: 4px; font-size: 12px; cursor: pointer;">🎯 Đặt làm điểm đến</button>
+              </div>
+            `;
+            
+            currentPopup = new mapboxgl.Popup({ closeButton: true, maxWidth: '350px' })
+              .setLngLat(coords)
+              .setHTML(popupHtml)
+              .addTo(map);
+            
+            // Khi popup bị đóng, reset currentPopup
+            currentPopup.on('close', () => {
+              currentPopup = null;
+            });
+            
+            // Trigger nearest locations feature if initialized
+            if (nearestLocationsOrchestrator) {
+              nearestLocationsOrchestrator.handleIndustrialZoneClick(feature);
+            }
+          });
+
+          // Right-click event for routing context menu
+          el.addEventListener('contextmenu', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            showRoutingContextMenu(e, feature);
+          });
+
+          // Tạo marker và lưu index để biết thứ tự
+          const marker = new mapboxgl.Marker(el)
+            .setLngLat(coords)
+            .addTo(map);
+
+          marker._featureIndex = index; // Lưu index để filter sau
+          marker._feature = feature; // Lưu feature để sử dụng cho nearest locations
+          industrialMarkers.push(marker);
+        }
+        
+        currentBatch++;
+        
+        // Nếu còn markers chưa tạo, tiếp tục batch tiếp theo
+        if (end < sortedFeatures.length) {
+          // Sử dụng setTimeout để không block UI
+          setTimeout(createMarkerBatch, 0);
+        } else {
+          console.log(`✅ Created ${industrialMarkers.length} markers in ${currentBatch} batches`);
+          
+          // Initialize Lucide icons sau khi tạo xong tất cả markers
+          if (typeof lucide !== 'undefined' && lucide.createIcons) {
+            lucide.createIcons();
+          }
+          
+          // Cập nhật visibility dựa trên zoom level và layer state
+          updateMarkerVisibility();
+        }
+      }
+      
+      // Bắt đầu tạo markers
+      createMarkerBatch();
+    }
+    
+    // Hàm cập nhật hiển thị marker dựa trên zoom level
+    function updateMarkerVisibility() {
+      const currentZoom = map.getZoom();
+      
+      // Kiểm tra xem layer có được bật không
+      const isLayerVisible = strategicLocationsSystem?.layerManager?.isLayerVisible('industrial-zones') ?? false;
+      
+      // Nếu layer bị tắt, ẩn tất cả markers
+      if (!isLayerVisible) {
+        industrialMarkers.forEach(marker => {
+          const el = marker.getElement();
+          if (el) {
+            el.style.display = 'none';
+          }
+        });
+        return;
+      }
+      
+      // ZOOM THRESHOLD - chỉ hiện markers khi zoom đủ gần
+      // Xác định số lượng marker hiển thị theo zoom (LOD - Level of Detail)
+      let maxMarkersToShow;
+      if (currentZoom < MIN_ZOOM_FOR_MARKERS) {
+        maxMarkersToShow = 0; // Không hiện khi zoom quá xa
+      } else if (currentZoom < 8) {
+        maxMarkersToShow = 200; // Top 200 lớn nhất
+      } else if (currentZoom < 9) {
+        maxMarkersToShow = 400; // Top 400
+      } else if (currentZoom < 10) {
+        maxMarkersToShow = 600; // Top 600
+      } else if (currentZoom < 11) {
+        maxMarkersToShow = 800; // Top 800
+      } else {
+        maxMarkersToShow = Infinity; // Tất cả khi zoom rất gần
+      }
+      
+      // Tính toán kích thước marker dựa trên zoom
+      let markerSize, iconSize;
+      if (currentZoom < 8) {
+        markerSize = 24;
+        iconSize = 14;
+      } else if (currentZoom < 10) {
+        markerSize = 32;
+        iconSize = 18;
+      } else {
+        markerSize = 40;
+        iconSize = 22;
+      }
+      
+      // Sử dụng requestAnimationFrame để tối ưu performance
+      requestAnimationFrame(() => {
+        industrialMarkers.forEach(marker => {
+          const el = marker.getElement();
+          if (el) {
+            const featureIndex = marker._featureIndex || 0;
+            const shouldShow = featureIndex < maxMarkersToShow;
+            
+            // Chỉ update nếu có thay đổi
+            const currentDisplay = el.style.display;
+            const newDisplay = shouldShow ? 'flex' : 'none';
+            
+            if (currentDisplay !== newDisplay) {
+              el.style.display = newDisplay;
+            }
+            
+            if (shouldShow) {
+              const currentWidth = el.style.width;
+              const newWidth = `${markerSize}px`;
+              
+              if (currentWidth !== newWidth) {
+                el.style.width = newWidth;
+                el.style.height = newWidth;
+                
+                // Cập nhật kích thước icon bên trong
+                const icon = el.querySelector('i[data-lucide]');
+                if (icon) {
+                  icon.style.width = `${iconSize}px`;
+                  icon.style.height = `${iconSize}px`;
+                }
+              }
+            }
+          }
+        });
+      });
+    }
+    
+    // Lắng nghe sự kiện zoom để ẩn/hiện marker
+    let zoomTimeout = null;
+    
+    map.on('zoom', () => {
+      // Debounce để tránh update quá nhiều lần
+      clearTimeout(zoomTimeout);
+      zoomTimeout = setTimeout(() => {
+        updateMarkerVisibility();
+      }, 200);
+    });
+
+    function ensureIndustrialOnTop() {
+      // Không cần thiết với custom markers vì chúng luôn ở trên
+    }
+
+    function zoomToData(geojson) {
+      const bounds = new mapboxgl.LngLatBounds();
+      geojson.features.forEach((feature) => {
+        if (feature.geometry?.type === 'Point') {
+          bounds.extend(feature.geometry.coordinates);
+        } else if (feature.geometry?.type === 'Polygon') {
+          feature.geometry.coordinates[0].forEach((coord) => bounds.extend(coord));
+        }
+      });
+      if (!bounds.isEmpty()) {
+        map.fitBounds(bounds, { padding: 60, duration: 1200 });
+      }
+    }
+
+    function addProvinceLayer(geojson) {
+      if (!map.getSource(PROVINCE_SOURCE_ID)) {
+        map.addSource(PROVINCE_SOURCE_ID, { type: 'geojson', data: geojson });
+        if (provinceLabelGeojson) {
+          map.addSource(PROVINCE_LABEL_SOURCE_ID, { type: 'geojson', data: provinceLabelGeojson });
+        }
+        map.addLayer({
+          id: 'vn-provinces-fill',
+          type: 'fill',
+          source: PROVINCE_SOURCE_ID,
+          paint: {
+            'fill-color': ['coalesce', ['get', 'color'], '#9b59b6'],
+            'fill-opacity': 0.6,
+          },
+        });
+        map.addLayer({
+          id: 'vn-provinces-outline',
+          type: 'line',
+          source: PROVINCE_SOURCE_ID,
+          paint: {
+            'line-color': '#242a61',
+            'line-width': 1.8,
+            'line-opacity': 0.9,
+          },
+        });
+        if (provinceLabelGeojson) {
+          map.addLayer({
+            id: 'vn-provinces-label',
+            type: 'symbol',
+            source: PROVINCE_LABEL_SOURCE_ID,
+            layout: {
+              'text-field': ['get', 'display_name'],
+              'text-font': ['Segoe UI Bold', 'Open Sans Semibold', 'Arial Unicode MS Regular'],
+              'text-size': ['interpolate', ['linear'], ['zoom'], 5, 22, 8, 24, 10, 28, 12, 32, 14, 40],
+              'text-allow-overlap': false,
+              'text-optional': true,
+              'text-padding': 2,
+              'symbol-placement': 'point',
+            },
+            paint: {
+              'text-color': '#ffffff',
+              'text-halo-color': '#000000',
+              'text-halo-width': 1.2,
+              'text-halo-blur': 0.2,
+            },
+          });
+        }
+      } else {
+        map.getSource(PROVINCE_SOURCE_ID).setData(geojson);
+        if (provinceLabelGeojson && map.getSource(PROVINCE_LABEL_SOURCE_ID)) {
+          map.getSource(PROVINCE_LABEL_SOURCE_ID).setData(provinceLabelGeojson);
+        }
+      }
+      toggleProvinceLayer(provinceVisible);
+      
+      // Reapply filters after layers are added/updated to maintain filter state
+      // This ensures filters persist across style changes and layer toggles
+      // Requirements: 2.4, 5.4, 6.2
+      reapplyProvinceFilters();
+    }
+
+    function toggleProvinceLayer(show) {
+      if (!map.getLayer('vn-provinces-fill')) return;
+      const visibility = show ? 'visible' : 'none';
+      map.setLayoutProperty('vn-provinces-fill', 'visibility', visibility);
+      map.setLayoutProperty('vn-provinces-outline', 'visibility', visibility);
+      if (map.getLayer('vn-provinces-label')) {
+        map.setLayoutProperty('vn-provinces-label', 'visibility', visibility);
+      }
+      updateLegendVisibility();
+    }
+
+    function bindIndustrialMarkerEvents() {
+      // Không còn cần thiết - events được xử lý trong custom markers
+    }
+
+    function focusOnIndustrialFeature(feature) {
+      if (!feature?.geometry?.coordinates) return false;
+      lastSelectedIndustrial = feature;
+      const coords = feature.geometry.coordinates;
+      const props = feature.properties || {};
+      map.flyTo({ center: coords, zoom: Math.max(map.getZoom(), 11), speed: 0.8 });
+      const googleUrl = coords?.length === 2
+        ? `https://www.google.com/maps/search/?api=1&query=${coords[1]},${coords[0]}`
+        : '';
+      const popupHtml = `
+        <strong>${props.name || 'Không xác định'}</strong><br>
+        ${props.kind ? `<em>${props.kind}</em><br>` : ''}
+        ${props.address ? `${props.address}<br>` : ''}
+        ${googleUrl ? `<a href="${googleUrl}" target="_blank" rel="noopener">Mở Google Maps</a>` : ''}
+      `;
+      new mapboxgl.Popup({ closeButton: true })
+        .setLngLat(coords)
+        .setHTML(popupHtml)
+        .addTo(map);
+      lastGeocoderPoint = coords;
+      return true;
+    }
+
+    
+    function addMaritimeClaims() {
+      if (map.getSource(MARITIME_SOURCE_ID)) {
+        map.getSource(MARITIME_SOURCE_ID).setData(MARITIME_FEATURES);
+        return;
+      }
+      map.addSource(MARITIME_SOURCE_ID, { type: 'geojson', data: MARITIME_FEATURES });
+      // Chỉ giữ nhãn, bỏ khung viền/ô vuông
+      map.addLayer({
+        id: 'vn-maritime-label',
+        type: 'symbol',
+        source: MARITIME_SOURCE_ID,
+        layout: {
+          'text-field': ['get', 'name'],
+          'text-font': ['Segoe UI Bold', 'Open Sans Bold', 'Arial Unicode MS Regular'],
+          'text-size': 14,
+          'text-allow-overlap': true,
+        },
+        paint: {
+          'text-color': '#ffffff',
+          'text-halo-color': '#0f62fe',
+          'text-halo-width': 1.2,
+        },
+      });
+    }
+
+function handleGeocoderResult(result) {
+      if (result?.properties?.local_iz_id && industrialGeojson?.features?.length) {
+        const feature = industrialGeojson.features.find((f) => {
+          const pid = f.properties?.id || f.properties?.code || `${f.properties?.name || 'kcn'}-${f.geometry?.coordinates?.join(',')}`;
+          return pid === result.properties.local_iz_id;
+        });
+        if (feature) {
+          focusOnIndustrialFeature(feature);
+          return true;
+        }
+      }
+      const provinceName = pickProvinceName(result);
+      if (provinceName && flyToProvince(provinceName)) {
+        return true;
+      }
+      const { bbox, center } = result || {};
+      if (bbox && bbox.length === 4) {
+        lastGeocoderPoint = [(bbox[0] + bbox[2]) / 2, (bbox[1] + bbox[3]) / 2];
+      } else if (center && center.length === 2) {
+        lastGeocoderPoint = center;
+      }
+      return false;
+    }
+
+    function pickProvinceName(result) {
+      if (!result) return '';
+      const normalizedType = (result.place_type || []).map((type) => type.toLowerCase());
+      // Prioritize the label the user clicked
+      if (result.text) return result.text;
+      // Then try the hierarchy
+      const ctx = result.context || [];
+      const regionMatch = ctx.find((item) => item.id?.startsWith('region.'));
+      if (regionMatch?.text) return regionMatch.text;
+      const placeMatch = ctx.find((item) => item.id?.startsWith('place.'));
+      if (placeMatch?.text) return placeMatch.text;
+      // Finally, accept district if returned
+      const districtMatch = ctx.find((item) => item.id?.startsWith('district.'));
+      return districtMatch?.text || '';
+    }
+
+    function flyToProvince(provinceName) {
+      const normalized = normalizeText(provinceName);
+      if (!normalized) return false;
+      const provinceFeature = findProvinceFeature(normalized);
+      if (provinceFeature) {
+        const bounds = new mapboxgl.LngLatBounds();
+        extendBounds(bounds, provinceFeature.geometry);
+        if (!bounds.isEmpty()) {
+          map.fitBounds(bounds, { padding: 60, duration: 1200 });
+          layerStatusEl.textContent = `Đang hiển thị ranh giới ${provinceFeature.properties?.display_name || provinceName}`;
+          return true;
+        }
+      }
+      if (!industrialGeojson?.features?.length) return false;
+      const matches = industrialGeojson.features.filter((feature) => {
+        const province = normalizeText(feature.properties?.province);
+        return province && (province.includes(normalized) || normalized.includes(province));
+      });
+      if (!matches.length) return false;
+      const bounds = new mapboxgl.LngLatBounds();
+      matches.forEach((feature) => extendBounds(bounds, feature.geometry));
+      if (bounds.isEmpty()) return false;
+      map.fitBounds(bounds, { padding: 80, duration: 1200 });
+      layerStatusEl.textContent = `Đang hiển thị ${matches.length} IZ/CCN thuộc ${provinceName}`;
+      return true;
+    }
+
+    function extendBounds(bounds, geometry) {
+      if (!geometry) return;
+      if (geometry.type === 'Point') {
+        bounds.extend(geometry.coordinates);
+        return;
+      }
+      if (geometry.type === 'Polygon') {
+        geometry.coordinates?.forEach((ring) => ring.forEach((coord) => bounds.extend(coord)));
+        return;
+      }
+      if (geometry.type === 'MultiPolygon') {
+        geometry.coordinates?.forEach((polygon) => {
+          polygon.forEach((ring) => ring.forEach((coord) => bounds.extend(coord)));
+        });
+      }
+    }
+
+    function runNearbySearch(centerCoords, radiusKm, label) {
+      searchResultEl.textContent = '';
+      if (searchListEl) {
+        searchListEl.style.display = 'none';
+        searchListEl.innerHTML = '';
+      }
+      if (!industrialGeojson?.features?.length) {
+        alert('Chưa có dữ liệu KCN/CCN.');
+        return;
+      }
+      if (!radiusKm || radiusKm <= 0) {
+        alert('Bán kính phải > 0 km.');
+        return;
+      }
+      const nearby = [];
+      const bounds = new mapboxgl.LngLatBounds();
+      industrialGeojson.features.forEach((feature) => {
+        const coords = feature.geometry?.coordinates;
+        if (!coords || coords.length !== 2) return;
+        const dist = distanceKm(centerCoords[1], centerCoords[0], coords[1], coords[0]);
+        if (dist <= radiusKm) {
+          nearby.push({ feature, dist });
+          bounds.extend(coords);
+        }
+      });
+      const circleGeojson = makeCircle(centerCoords, radiusKm);
+      addNearbyLayer(nearby.map((item) => item.feature), circleGeojson);
+      if (!bounds.isEmpty()) {
+        map.fitBounds(bounds, { padding: 80, duration: 1000 });
+      }
+      searchResultEl.textContent = `Có ${nearby.length} KCN/CCN trong ${radiusKm} km quanh ${label}.`;
+      renderNearbyList(nearby);
+    }
+
+    function addNearbyLayer(features, circleGeojson) {
+      const sourceId = 'nearby-industrial';
+      const circleSourceId = 'nearby-circle';
+      if (map.getSource(sourceId)) {
+        map.getSource(sourceId).setData({ type: 'FeatureCollection', features });
+      } else {
+        map.addSource(sourceId, { type: 'geojson', data: { type: 'FeatureCollection', features } });
+        map.addLayer({
+          id: 'nearby-industrial-layer',
+          type: 'circle',
+          source: sourceId,
+          paint: {
+            'circle-radius': ['interpolate', ['linear'], ['zoom'], 5, 6, 12, 10],
+            'circle-color': '#00e5ff',
+            'circle-stroke-color': '#ffffff',
+            'circle-stroke-width': 1,
+          },
+        });
+      }
+      if (map.getSource(circleSourceId)) {
+        map.getSource(circleSourceId).setData(circleGeojson);
+      } else {
+        map.addSource(circleSourceId, { type: 'geojson', data: circleGeojson });
+        map.addLayer({
+          id: 'nearby-circle-layer',
+          type: 'line',
+          source: circleSourceId,
+          paint: {
+            'line-color': '#00e5ff',
+            'line-width': 2,
+            'line-dasharray': [2, 2],
+          },
+        });
+      }
+    }
+
+    function distanceKm(lat1, lon1, lat2, lon2) {
+      const toRad = (deg) => (deg * Math.PI) / 180;
+      const R = 6371;
+      const dLat = toRad(lat2 - lat1);
+      const dLon = toRad(lon2 - lon1);
+      const a = Math.sin(dLat / 2) ** 2
+        + Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) ** 2;
+      return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    }
+
+    function makeCircle(center, radiusKm, points = 128) {
+      const [lng, lat] = center;
+      const coords = [];
+      const d = radiusKm / 6371; // angular distance in radians
+      const latRad = (lat * Math.PI) / 180;
+      const lngRad = (lng * Math.PI) / 180;
+      for (let i = 0; i <= points; i++) {
+        const bearing = (2 * Math.PI * i) / points;
+        const lat2 = Math.asin(
+          Math.sin(latRad) * Math.cos(d) + Math.cos(latRad) * Math.sin(d) * Math.cos(bearing),
+        );
+        const lng2 = lngRad + Math.atan2(
+          Math.sin(bearing) * Math.sin(d) * Math.cos(latRad),
+          Math.cos(d) - Math.sin(latRad) * Math.sin(lat2),
+        );
+        coords.push([(lng2 * 180) / Math.PI, (lat2 * 180) / Math.PI]);
+      }
+      return {
+        type: 'FeatureCollection',
+        features: [
+          {
+            type: 'Feature',
+            geometry: {
+              type: 'Polygon',
+              coordinates: [coords],
+            },
+            properties: {},
+          },
+        ],
+      };
+    }
+
+    function renderNearbyList(nearby) {
+      if (!searchListEl) return;
+      if (!nearby.length) {
+        searchListEl.style.display = 'block';
+        searchListEl.innerHTML = 'Không có KCN/CCN trong bán kính.';
+        return;
+      }
+      const sorted = nearby.sort((a, b) => a.dist - b.dist);
+      const items = sorted.map((item, idx) => {
+        const props = item.feature.properties || {};
+        const name = props.name || 'Không tên';
+        const province = props.province ? ` - ${props.province}` : '';
+        const dist = item.dist.toFixed(1);
+        return `<div>${idx + 1}. ${name}${province} (${dist} km)</div>`;
+      });
+      searchListEl.style.display = 'block';
+      searchListEl.innerHTML = items.join('');
+    }
+
+    function localGeocodeIndustrial(query) {
+      if (!industrialGeojson?.features?.length) return [];
+      const normQuery = normalizeText(query);
+      if (!normQuery) return [];
+      const matches = industrialGeojson.features.filter((feature) => {
+        const nameNorm = normalizeText(feature.properties?.name);
+        return nameNorm.includes(normQuery);
+      }).slice(0, 10);
+      return matches.map((feature) => {
+        const coords = feature.geometry?.coordinates || [0, 0];
+        const id = feature.properties?.id || feature.properties?.code || `${feature.properties?.name || 'kcn'}-${coords.join(',')}`;
+        return {
+          type: 'Feature',
+          geometry: {
+            type: 'Point',
+            coordinates: coords,
+          },
+          place_name: feature.properties?.name || 'KCN/CCN',
+          place_type: ['poi'],
+          center: coords,
+          properties: {
+            title: feature.properties?.name,
+            local_iz_id: id,
+            source: 'industrial-local',
+          },
+        };
+      });
+    }
+
+    function localSearchIndustrial(query) {
+      console.log('🔍 localSearchIndustrial called with query:', query);
+      console.log('📊 industrialGeojson exists:', !!industrialGeojson);
+      console.log('📊 industrialGeojson features count:', industrialGeojson?.features?.length || 0);
+      
+      if (!industrialGeojson?.features?.length) return [];
+      const normQuery = normalizeText(query);
+      console.log('🔤 Normalized query:', normQuery);
+      if (!normQuery) return [];
+      
+      // Split query into words for fuzzy matching
+      const queryWords = normQuery.split(' ').filter(w => w.length > 0);
+      console.log('📝 Query words:', queryWords);
+      
+      // Search in multiple fields with scoring
+      const results = industrialGeojson.features
+        .map((feature) => {
+          const props = feature.properties || {};
+          const name = normalizeText(props.name || '');
+          const code = normalizeText(props.code || '');
+          const address = normalizeText(props.address || '');
+          const province = normalizeText(props.province || '');
+          const district = normalizeText(props.district || '');
+          const commune = normalizeText(props.commune || '');
+          const kind = normalizeText(props.kind || '');
+          
+          let score = 0;
+          let matchedField = '';
+          
+          // Exact match in name (highest priority)
+          if (name === normQuery) {
+            score = 100;
+            matchedField = 'name-exact';
+          }
+          // Name starts with query
+          else if (name.startsWith(normQuery)) {
+            score = 90;
+            matchedField = 'name-start';
+          }
+          // Name contains query
+          else if (name.includes(normQuery)) {
+            score = 80;
+            matchedField = 'name';
+          }
+          // Fuzzy word matching in name (all query words must be in name)
+          else if (queryWords.length > 1 && queryWords.every(word => name.includes(word))) {
+            score = 75;
+            matchedField = 'name-fuzzy';
+          }
+          // Code matches
+          else if (code.includes(normQuery)) {
+            score = 70;
+            matchedField = 'code';
+          }
+          // Province matches
+          else if (province.includes(normQuery)) {
+            score = 60;
+            matchedField = 'province';
+          }
+          // District matches
+          else if (district.includes(normQuery)) {
+            score = 50;
+            matchedField = 'district';
+          }
+          // Address matches
+          else if (address.includes(normQuery)) {
+            score = 40;
+            matchedField = 'address';
+          }
+          // Fuzzy word matching in address
+          else if (queryWords.length > 1 && queryWords.every(word => address.includes(word))) {
+            score = 35;
+            matchedField = 'address-fuzzy';
+          }
+          // Commune matches
+          else if (commune.includes(normQuery)) {
+            score = 30;
+            matchedField = 'commune';
+          }
+          // Kind matches
+          else if (kind.includes(normQuery)) {
+            score = 20;
+            matchedField = 'kind';
+          }
+          
+          return { feature, score, matchedField };
+        })
+        .filter(item => item.score > 0)
+        .sort((a, b) => b.score - a.score)
+        .slice(0, 10); // Increase to 10 results
+      
+      console.log('✅ Found results:', results.length);
+      if (results.length > 0) {
+        console.log('🎯 Top result:', results[0].feature.properties?.name, 'Score:', results[0].score, 'Field:', results[0].matchedField);
+      }
+      
+      return results.map(item => ({
+        type: 'iz',
+        label: item.feature.properties?.name || 'KCN/CCN',
+        sublabel: item.feature.properties?.province || '',
+        coords: item.feature.geometry?.coordinates,
+        feature: item.feature,
+        score: item.score,
+        matchedField: item.matchedField
+      }));
+    }
+
+    async function nominatimFetch(query) {
+      try {
+        const url = new URL('https://nominatim.openstreetmap.org/search');
+        url.searchParams.set('q', query);
+        url.searchParams.set('format', 'jsonv2');
+        url.searchParams.set('addressdetails', '1');
+        url.searchParams.set('limit', '5');
+        url.searchParams.set('countrycodes', 'vn');
+        const res = await fetch(url.toString(), { headers: { Accept: 'application/json' } });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data = await res.json();
+        if (!Array.isArray(data)) return [];
+        return data
+          .map((item) => {
+            const lng = parseFloat(item.lon);
+            const lat = parseFloat(item.lat);
+            if (!Number.isFinite(lng) || !Number.isFinite(lat)) return null;
+            return {
+              type: 'osm',
+              label: item.display_name,
+              coords: [lng, lat],
+            };
+          })
+          .filter(Boolean);
+      } catch (err) {
+        console.error('Nominatim fetch failed', err);
+        return [];
+      }
+    }
+
+    function normalizeText(text) {
+      return (text || '')
+        .toString()
+        .toLowerCase()
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '') // Remove diacritics
+        .replace(/[^a-z0-9\s]/g, '') // Keep letters, numbers, and spaces
+        .replace(/\s+/g, ' ') // Normalize multiple spaces to single space
+        .trim();
+    }
+
+    // Calculate distance between two points using Haversine formula
+    function haversineDistance(coord1, coord2) {
+      const R = 6371; // Earth radius in km
+      const [lon1, lat1] = coord1;
+      const [lon2, lat2] = coord2;
+      
+      const dLat = (lat2 - lat1) * Math.PI / 180;
+      const dLon = (lon2 - lon1) * Math.PI / 180;
+      
+      const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+                Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+                Math.sin(dLon / 2) * Math.sin(dLon / 2);
+      
+      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+      return R * c;
+    }
+
+    function computeCentroid(geometry) {
+      if (!geometry) return [0, 0];
+      if (geometry.type === 'Polygon') {
+        return polylabelPoint(geometry.coordinates);
+      }
+      if (geometry.type === 'MultiPolygon') {
+        let best = { area: 0, point: [0, 0] };
+        geometry.coordinates?.forEach((poly) => {
+          const area = Math.abs(polygonSignedArea(poly[0]));
+          const p = polylabelPoint(poly);
+          if (area > best.area) {
+            best = { area, point: p };
+          }
+        });
+        return best.point;
+      }
+      return [0, 0];
+    }
+
+    function polylabelPoint(polygon, precision = 0.1) {
+      // Minimal polylabel implementation for a single polygon (array of rings)
+      let minX, minY, maxX, maxY;
+      polygon[0].forEach(([x, y]) => {
+        if (minX === undefined || x < minX) minX = x;
+        if (minY === undefined || y < minY) minY = y;
+        if (maxX === undefined || x > maxX) maxX = x;
+        if (maxY === undefined || y > maxY) maxY = y;
+      });
+      const width = maxX - minX;
+      const height = maxY - minY;
+      const cellSize = Math.min(width, height);
+      if (!cellSize) return [minX, minY];
+      let h = cellSize / 2;
+
+      const cellQueue = [];
+      for (let x = minX; x < maxX; x += cellSize) {
+        for (let y = minY; y < maxY; y += cellSize) {
+          cellQueue.push(makeCell(x + h, y + h, h, polygon));
+        }
+      }
+
+      let bestCell = makeCell(minX + width / 2, minY + height / 2, 0, polygon);
+      const bboxCell = makeCell(minX, minY, 0, polygon);
+      if (bboxCell.d > bestCell.d) bestCell = bboxCell;
+
+      while (cellQueue.length) {
+        cellQueue.sort((a, b) => b.max - a.max);
+        const cell = cellQueue.shift();
+        if (cell.d > bestCell.d) bestCell = cell;
+        if (cell.max - bestCell.d <= precision) continue;
+        h = cell.h / 2;
+        cellQueue.push(makeCell(cell.x - h, cell.y - h, h, polygon));
+        cellQueue.push(makeCell(cell.x + h, cell.y - h, h, polygon));
+        cellQueue.push(makeCell(cell.x - h, cell.y + h, h, polygon));
+        cellQueue.push(makeCell(cell.x + h, cell.y + h, h, polygon));
+      }
+      return [bestCell.x, bestCell.y];
+    }
+
+    function makeCell(x, y, h, polygon) {
+      const d = pointToPolygonDist([x, y], polygon);
+      return { x, y, h, d, max: d + h * Math.SQRT2 };
+    }
+
+    function pointToPolygonDist(point, polygon) {
+      let inside = false;
+      let minDistSq = Infinity;
+      const [px, py] = point;
+      polygon.forEach((ring) => {
+        for (let i = 0, len = ring.length - 1; i < len; i++) {
+          const [x1, y1] = ring[i];
+          const [x2, y2] = ring[i + 1];
+          if (((y1 > py) !== (y2 > py)) && (px < ((x2 - x1) * (py - y1)) / (y2 - y1) + x1)) {
+            inside = !inside;
+          }
+          const distSq = segmentDistSq(px, py, x1, y1, x2, y2);
+          if (distSq < minDistSq) minDistSq = distSq;
+        }
+      });
+      return (inside ? 1 : -1) * Math.sqrt(minDistSq);
+    }
+
+    function segmentDistSq(px, py, x1, y1, x2, y2) {
+      let dx = x2 - x1;
+      let dy = y2 - y1;
+      if (dx !== 0 || dy !== 0) {
+        const t = ((px - x1) * dx + (py - y1) * dy) / (dx * dx + dy * dy);
+        if (t > 1) {
+          dx = px - x2;
+          dy = py - y2;
+        } else if (t > 0) {
+          dx = px - (x1 + dx * t);
+          dy = py - (y1 + dy * t);
+        } else {
+          dx = px - x1;
+          dy = py - y1;
+        }
+      }
+      return dx * dx + dy * dy;
+    }
+
+    function polygonSignedArea(ring) {
+      if (!ring?.length) return 0;
+      let sum = 0;
+      for (let i = 0, len = ring.length - 1; i < len; i++) {
+        const [x0, y0] = ring[i];
+        const [x1, y1] = ring[i + 1];
+        sum += x0 * y1 - x1 * y0;
+      }
+      return sum / 2;
+    }
+
+    function findProvinceFeature(normalizedName) {
+      if (!provinceGeojson?.features?.length) return null;
+      return provinceGeojson.features.find((feature) => {
+        const props = feature.properties || {};
+        const candidates = [
+          props.display_name,
+          props.NAME_1,
+          props.VARNAME_1,
+          props.HASC_1,
+        ].map(normalizeText).filter(Boolean);
+        return candidates.some((candidate) => candidate === normalizedName);
+      }) || null;
+    }
+
+    // ============================================
+    // ROUTE PLANNING & NAVIGATION INTEGRATION
+    // ============================================
+
+    // Load routing modules
+    let DirectionsAPI, WaypointManager, RouteManager, RouteHistoryManager;
+    let RouteExporter, MapRouteRenderer, RoutePanel, RouteInfoPanel;
+    let routingSystem = null;
+
+    // Initialize routing system after map loads
+    async function initializeRoutingSystem() {
+      try {
+        // Load all routing modules
+        const modules = await Promise.all([
+          import('./src/routing/services/directions-api.js'),
+          import('./src/routing/managers/waypoint-manager.js'),
+          import('./src/routing/managers/route-manager.js'),
+          import('./src/routing/managers/history-manager.js'),
+          import('./src/routing/managers/route-exporter.js'),
+          import('./src/routing/components/map-route-renderer.js'),
+          import('./src/routing/components/route-panel.js?v=' + Date.now()),
+          import('./src/routing/components/route-info-panel.js'),
+        ]);
+
+        [
+          DirectionsAPI,
+          WaypointManager,
+          RouteManager,
+          RouteHistoryManager,
+          RouteExporter,
+          MapRouteRenderer,
+          RoutePanel,
+          RouteInfoPanel,
+        ] = modules.map(m => m.default || m);
+
+        // Initialize services
+        const directionsAPI = new DirectionsAPI(MAPBOX_TOKEN);
+        const waypointManager = new WaypointManager();
+        const routeManager = new RouteManager(directionsAPI);
+        const historyManager = new RouteHistoryManager();
+        const routeExporter = new RouteExporter();
+        const mapRouteRenderer = new MapRouteRenderer(map);
+
+        // Initialize UI components
+        const routePanelContainer = document.getElementById('routePanelContainer');
+        const routeInfoContainer = document.getElementById('routeInfoContainer');
+        const routeInfoSidebar = document.getElementById('routeInfoSidebar');
+
+        const routePanel = new RoutePanel({
+          container: routePanelContainer,
+          waypointManager,
+          routeManager,
+          onRouteCalculated: (result) => {
+            if (result.success && result.route) {
+              // Render route on map
+              mapRouteRenderer.renderRoutes([result.route, ...result.alternatives]);
+              mapRouteRenderer.addWaypointMarkers(result.route.waypoints);
+
+              // Display route info
+              routeInfoPanel.displayRoute(result.route, result.alternatives);
+              routeInfoSidebar.style.display = 'block';
+
+              // Save to history
+              historyManager.saveRoute(result.route, result.route.waypoints);
+            } else {
+              // Clear route
+              mapRouteRenderer.clearRoutes();
+              mapRouteRenderer.removeWaypointMarkers();
+              routeInfoPanel.clear();
+              routeInfoSidebar.style.display = 'none';
+            }
+          },
+        });
+
+        const routeInfoPanel = new RouteInfoPanel({
+          container: routeInfoContainer,
+          onAlternativeSelected: (route, index) => {
+            routeManager.selectRoute(index);
+            const currentRoute = routeManager.getCurrentRoute();
+            const alternatives = routeManager.getAlternativeRoutes();
+            
+            // Re-render routes
+            mapRouteRenderer.clearRoutes();
+            mapRouteRenderer.renderRoutes([currentRoute, ...alternatives]);
+            
+            // Update info panel
+            routeInfoPanel.displayRoute(currentRoute, alternatives);
+          },
+          onStepClick: (step, index) => {
+            // Zoom to step location
+            if (step.maneuver && step.maneuver.location) {
+              map.flyTo({
+                center: step.maneuver.location,
+                zoom: 15,
+                duration: 1000,
+              });
+            }
+            routeInfoPanel.highlightStep(index);
+          },
+        });
+
+        // Store routing system globally
+        routingSystem = {
+          directionsAPI,
+          waypointManager,
+          routeManager,
+          historyManager,
+          routeExporter,
+          mapRouteRenderer,
+          routePanel,
+          routeInfoPanel,
+        };
+
+        // Setup map click handler for waypoint selection
+        let routingClickMode = null;
+        window.routingMapClickHandler = (mode) => {
+          routingClickMode = mode;
+          map.getCanvas().style.cursor = 'crosshair';
+        };
+
+        // Enhanced map click handler
+        const originalMapClickHandler = map._listeners.click?.[0];
+        map.on('click', (e) => {
+          if (routingClickMode) {
+            const { lng, lat } = e.lngLat.wrap();
+            const waypoint = {
+              id: `wp_${Date.now()}`,
+              name: `Điểm (${lat.toFixed(4)}, ${lng.toFixed(4)})`,
+              coordinates: [lng, lat],
+              type: routingClickMode,
+            };
+
+            if (routingClickMode === 'origin') {
+              routePanel.setOrigin(waypoint);
+            } else if (routingClickMode === 'destination') {
+              routePanel.setDestination(waypoint);
+            } else if (routingClickMode === 'waypoint') {
+              routePanel.addWaypoint(waypoint);
+            }
+
+            routingClickMode = null;
+            map.getCanvas().style.cursor = '';
+            return;
+          }
+        });
+
+        // Add context menu for industrial markers
+        industrialMarkers.forEach(marker => {
+          const el = marker.getElement();
+          el.addEventListener('contextmenu', (e) => {
+            e.preventDefault();
+            const feature = industrialGeojson.features.find(
+              f => f.geometry.coordinates[0] === marker.getLngLat().lng &&
+                   f.geometry.coordinates[1] === marker.getLngLat().lat
+            );
+            
+            if (feature) {
+              showRoutingContextMenu(e, feature);
+            }
+          });
+        });
+
+        console.log('✅ Routing system initialized successfully');
+      } catch (error) {
+        console.error('❌ Failed to initialize routing system:', error);
+      }
+    }
+
+    // Show context menu for routing
+    function showRoutingContextMenu(event, feature) {
+      const menu = document.createElement('div');
+      menu.style.cssText = `
+        position: fixed;
+        left: ${event.clientX}px;
+        top: ${event.clientY}px;
+        background: rgba(0, 0, 0, 0.9);
+        color: white;
+        border-radius: 6px;
+        padding: 8px 0;
+        z-index: 10000;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+        min-width: 180px;
+      `;
+
+      const coords = feature.geometry.coordinates;
+      const name = feature.properties?.name || 'Địa điểm';
+
+      const options = [
+        { label: '📍 Đặt làm điểm xuất phát', action: 'origin' },
+        { label: '🎯 Đặt làm điểm đến', action: 'destination' },
+        { label: '➕ Thêm điểm dừng', action: 'waypoint' },
+      ];
+
+      options.forEach(opt => {
+        const item = document.createElement('div');
+        item.textContent = opt.label;
+        item.style.cssText = `
+          padding: 10px 16px;
+          cursor: pointer;
+          font-size: 13px;
+          transition: background 0.2s;
+        `;
+        item.addEventListener('mouseenter', () => {
+          item.style.background = 'rgba(255,255,255,0.1)';
+        });
+        item.addEventListener('mouseleave', () => {
+          item.style.background = 'transparent';
+        });
+        item.addEventListener('click', () => {
+          addToRouting(name, coords, opt.action);
+          menu.remove();
+        });
+        menu.appendChild(item);
+      });
+
+      document.body.appendChild(menu);
+
+      // Remove menu on click outside
+      setTimeout(() => {
+        document.addEventListener('click', () => menu.remove(), { once: true });
+      }, 100);
+    }
+
+    // Add location to routing panel
+    window.addToRouting = function(name, coords, action) {
+      if (!routingSystem) {
+        console.warn('Routing system not initialized');
+        return;
+      }
+
+      const waypoint = {
+        id: `wp_${Date.now()}`,
+        name: name,
+        coordinates: coords,
+        type: action,
+        placeType: 'kcn',
+      };
+
+      // Switch to routing tab
+      document.querySelectorAll('.sidebar-tab').forEach(tab => {
+        tab.classList.remove('active');
+        tab.style.color = 'rgba(255, 255, 255, 0.7)';
+        tab.style.borderBottomColor = 'transparent';
+      });
+      const routingTab = document.querySelector('[data-tab="routing"]');
+      if (routingTab) {
+        routingTab.classList.add('active');
+        routingTab.style.color = '#fff';
+        routingTab.style.borderBottomColor = '#3B82F6';
+      }
+
+      document.querySelectorAll('.tab-content').forEach(content => {
+        content.style.display = 'none';
+      });
+      const routingTabContent = document.getElementById('routingTab');
+      if (routingTabContent) {
+        routingTabContent.style.display = 'block';
+      }
+
+      // Set waypoint in route panel
+      if (action === 'origin') {
+        routingSystem.routePanel.setOrigin(waypoint);
+      } else if (action === 'destination') {
+        routingSystem.routePanel.setDestination(waypoint);
+      } else if (action === 'waypoint') {
+        routingSystem.routePanel.addWaypoint(waypoint);
+      }
+
+      console.log(`✅ Added ${name} as ${action} to routing`);
+    };
+
+    // Initialize routing when map is ready
+    map.on('load', () => {
+      setTimeout(() => {
+        setupMainSidebar();
+        initializeRoutingSystem();
+        initializeStrategicLocations();
+        initializeGPS(); // Initialize GPS functionality
+      }, 1000);
+    });
+
+// ============================================
+// STRATEGIC LOCATIONS INTEGRATION
+// ============================================
+
+// Load strategic locations modules
+let LocationManager, LayerManager, MapLocationRenderer;
+let strategicLocationsSystem = null;
+
+// Initialize strategic locations system
+async function initializeStrategicLocations() {
+  try {
+    console.log('🗺️ Initializing strategic locations system...');
+    
+    // Load all strategic locations modules
+    console.log('📦 Loading modules...');
+    const modules = await Promise.all([
+      import('./src/strategic-locations/managers/location-manager.js'),
+      import('./src/strategic-locations/managers/layer-manager.js'),
+      import('./src/strategic-locations/components/map-location-renderer.js'),
+    ]);
+    console.log('📦 Modules loaded:', modules);
+
+    [LocationManager, LayerManager, MapLocationRenderer] = modules.map(m => m.default || m);
+    console.log('📦 Classes extracted:', { LocationManager, LayerManager, MapLocationRenderer });
+
+    // Initialize managers
+    const locationManager = new LocationManager();
+    const layerManager = new LayerManager();
+    const mapRenderer = new MapLocationRenderer(map);
+    console.log('✅ Managers initialized');
+
+    // Load saved layer states from localStorage
+    layerManager.loadState();
+
+    // Store system globally
+    strategicLocationsSystem = {
+      locationManager,
+      layerManager,
+      mapRenderer,
+    };
+    console.log('✅ System stored globally');
+
+    // Setup toggle handlers
+    setupLayerToggles(locationManager, layerManager, mapRenderer);
+    console.log('✅ Toggle handlers setup');
+
+    // ALWAYS load strategic locations data (needed for nearest locations feature)
+    console.log('📍 Loading strategic locations data for nearest locations feature...');
+    await locationManager.loadAllLocations();
+    console.log('📍 Strategic locations data loaded');
+
+    // Render strategic locations if layer is enabled
+    if (layerManager.isLayerVisible('strategic-locations')) {
+      const locationsData = locationManager.getAllLocations();
+      const types = locationManager.getLocationTypes();
+      const locationCount = locationsData?.features?.length || 0;
+      
+      if (locationCount > 0) {
+        mapRenderer.renderStrategicLocations(locationsData, types);
+        console.log(`📍 Rendered ${locationCount} strategic locations on map`);
+      }
+      updateStrategicCount(locationCount);
+    }
+
+    // Update industrial zones count
+    updateIndustrialCount();
+
+    console.log('✅ Strategic locations system initialized successfully');
+    
+    // Initialize nearest locations feature after strategic locations are ready
+    await initializeNearestLocationsFeature(locationManager);
+  } catch (error) {
+    console.error('❌ Failed to initialize strategic locations system:', error);
+  }
+}
+
+// Load and render strategic locations
+async function loadAndRenderStrategicLocations(locationManager, mapRenderer) {
+  try {
+    console.log('📍 Loading strategic locations...');
+    console.log('📍 LocationManager:', locationManager);
+    console.log('📍 MapRenderer:', mapRenderer);
+    
+    await locationManager.loadAllLocations();
+    console.log('📍 loadAllLocations completed');
+    
+    const locationsData = locationManager.getAllLocations();
+    console.log('📍 getAllLocations returned:', locationsData);
+    
+    const types = locationManager.getLocationTypes();
+    console.log('📍 getLocationTypes returned:', types);
+    
+    const locationCount = locationsData?.features?.length || 0;
+    console.log(`📍 Loaded ${locationCount} strategic locations`);
+    
+    if (locationCount > 0) {
+      mapRenderer.renderStrategicLocations(locationsData, types);
+      console.log('📍 renderStrategicLocations completed');
+    } else {
+      console.warn('📍 No locations to render!');
+    }
+    
+    // Update count
+    updateStrategicCount(locationCount);
+  } catch (error) {
+    console.error('❌ Failed to load strategic locations:', error);
+    console.error('❌ Error stack:', error.stack);
+  }
+}
+
+// Setup layer toggle handlers
+function setupLayerToggles(locationManager, layerManager, mapRenderer) {
+  console.log('🔧 Setting up layer toggles...');
+  const toggleIndustrialBtn = document.getElementById('toggleIndustrialBtn');
+  const toggleStrategicBtn = document.getElementById('toggleStrategicBtn');
+  const industrialStatus = document.getElementById('industrialStatus');
+  const strategicStatus = document.getElementById('strategicStatus');
+
+  console.log('🔧 Toggle buttons:', { toggleIndustrialBtn, toggleStrategicBtn, industrialStatus, strategicStatus });
+
+  if (!toggleIndustrialBtn || !toggleStrategicBtn) {
+    console.error('❌ Toggle buttons not found!');
+    return;
+  }
+
+  // Industrial zones toggle
+  toggleIndustrialBtn.addEventListener('click', async () => {
+    console.log('🏭 Industrial toggle clicked');
+    const visible = layerManager.toggleLayer('industrial-zones');
+    industrialStatus.textContent = visible ? 'Đang hiện' : 'Đang ẩn';
+    industrialStatus.style.color = visible ? '#10B981' : '#EF4444';
+    
+    // Load on-demand nếu chưa load
+    if (visible && !industrialGeojson) {
+      industrialStatus.textContent = 'Đang tải...';
+      await loadIndustrialZones();
+      industrialStatus.textContent = 'Đang hiện';
+    }
+    
+    // Update count display
+    updateIndustrialCount();
+    
+    if (visible) {
+      // If showing and markers don't exist yet, create them
+      if (industrialMarkers.length === 0 && industrialGeojson) {
+        console.log('🏭 Creating markers for the first time...');
+        addIndustrialLayer(industrialGeojson);
+      } else {
+        // Just toggle visibility
+        toggleIndustrialMarkers(visible);
+      }
+    } else {
+      // Hide markers
+      toggleIndustrialMarkers(visible);
+    }
+    
+    layerManager.saveState();
+  });
+
+  // Strategic locations toggle
+  toggleStrategicBtn.addEventListener('click', async () => {
+    console.log('📍 Strategic toggle clicked');
+    const visible = layerManager.toggleLayer('strategic-locations');
+    strategicStatus.textContent = visible ? 'Đang hiện' : 'Đang ẩn';
+    strategicStatus.style.color = visible ? '#10B981' : '#EF4444';
+    
+    if (visible) {
+      // Load and render if not already loaded
+      const locationsData = locationManager.getAllLocations();
+      const locationCount = locationsData?.features?.length || 0;
+      console.log('📍 Current locations count:', locationCount);
+      
+      // Always load if no locations
+      if (locationCount === 0) {
+        await loadAndRenderStrategicLocations(locationManager, mapRenderer);
+      } else {
+        mapRenderer.toggleStrategicLocations(true);
+      }
+      
+      // Update count display
+      const finalCount = locationManager.getAllLocations()?.features?.length || 0;
+      updateStrategicCount(finalCount);
+    } else {
+      // Hide strategic locations
+      mapRenderer.toggleStrategicLocations(false);
+    }
+    
+    layerManager.saveState();
+  });
+
+  // Initialize button states from saved state
+  const industrialVisible = layerManager.isLayerVisible('industrial-zones');
+  const strategicVisible = layerManager.isLayerVisible('strategic-locations');
+  
+  industrialStatus.textContent = industrialVisible ? 'Đang hiện' : 'Đang ẩn';
+  industrialStatus.style.color = industrialVisible ? '#10B981' : '#EF4444';
+  
+  strategicStatus.textContent = strategicVisible ? 'Đang hiện' : 'Đang ẩn';
+  strategicStatus.style.color = strategicVisible ? '#10B981' : '#EF4444';
+  
+  // Apply initial state to industrial markers (always call to ensure zoom-based logic is applied)
+  toggleIndustrialMarkers(industrialVisible);
+  
+  console.log('✅ Layer toggles initialized with states:', { industrialVisible, strategicVisible });
+}
+
+// Toggle industrial markers visibility
+function toggleIndustrialMarkers(visible) {
+  if (visible) {
+    // Nếu bật layer, gọi updateMarkerVisibility để áp dụng logic zoom-based
+    updateMarkerVisibility();
+  } else {
+    // Nếu tắt layer, ẩn tất cả markers
+    industrialMarkers.forEach(marker => {
+      const el = marker.getElement();
+      if (el) {
+        el.style.display = 'none';
+      }
+    });
+  }
+}
+
+// Update industrial zones count
+function updateIndustrialCount() {
+  const count = industrialGeojson?.features?.length || 0;
+  const industrialCount = document.getElementById('industrialCount');
+  if (industrialCount) {
+    industrialCount.textContent = `(${count})`;
+  }
+}
+
+// Update strategic locations count
+function updateStrategicCount(count) {
+  const strategicCount = document.getElementById('strategicCount');
+  if (strategicCount) {
+    strategicCount.textContent = `(${count})`;
+  }
+}
+
+// Enhance search to include strategic locations
+async function enhanceSearchWithStrategicLocations(query) {
+  if (!strategicLocationsSystem) return [];
+  
+  const { locationManager } = strategicLocationsSystem;
+  const results = locationManager.searchLocations(query);
+  
+  return results.map(result => ({
+    type: 'strategic',
+    label: `${result.name} (${result.typeName})`,
+    coords: result.coordinates,
+    location: result.location,
+    locationType: result.type,
+  }));
+}
+
+// ============================================
+// NEAREST LOCATIONS FEATURE INTEGRATION
+// ============================================
+
+let nearestLocationsOrchestrator = null;
+
+// Initialize nearest locations feature
+async function initializeNearestLocationsFeature(locationManager) {
+  try {
+    console.log('🎯 Initializing nearest locations feature...');
+    
+    // Import the nearest locations module
+    const { initializeNearestLocations } = await import('./src/nearest-locations/index.js');
+    
+    // Initialize the orchestrator
+    nearestLocationsOrchestrator = initializeNearestLocations(
+      map,
+      locationManager,
+      MAPBOX_TOKEN,
+      'nearestLocationsPanel'
+    );
+    
+    console.log('✅ Nearest locations feature initialized successfully');
+    console.log(`🔗 Click handlers already attached to ${industrialMarkers.length} industrial zone markers`);
+  } catch (error) {
+    console.error('❌ Failed to initialize nearest locations feature:', error);
+  }
+}
+
+// Setup main sidebar with tabs
+function setupMainSidebar() {
+  const sidebar = document.getElementById('mainSidebar');
+  const toggleBtn = document.getElementById('mainSidebarToggle');
+  const closeBtn = document.getElementById('closeSidebarBtn');
+  const tabs = document.querySelectorAll('.sidebar-tab');
+  const tabContents = document.querySelectorAll('.tab-content');
+  let isOpen = false;
+
+  // Toggle sidebar
+  function toggleSidebar() {
+    isOpen = !isOpen;
+    if (isOpen) {
+      sidebar.style.left = '0';
+      toggleBtn.style.left = '420px';
+      toggleBtn.style.opacity = '0';
+      toggleBtn.style.pointerEvents = 'none';
+    } else {
+      sidebar.style.left = '-420px';
+      toggleBtn.style.left = '10px';
+      toggleBtn.style.opacity = '1';
+      toggleBtn.style.pointerEvents = 'auto';
+    }
+  }
+
+  toggleBtn.addEventListener('click', toggleSidebar);
+  closeBtn.addEventListener('click', toggleSidebar);
+
+  // Tab switching
+  tabs.forEach(tab => {
+    tab.addEventListener('click', () => {
+      const targetTab = tab.dataset.tab;
+      
+      // Update tab styles
+      tabs.forEach(t => {
+        t.classList.remove('active');
+        t.style.color = 'rgba(255, 255, 255, 0.6)';
+        t.style.borderBottomColor = 'transparent';
+      });
+      tab.classList.add('active');
+      tab.style.color = '#fff';
+      tab.style.borderBottomColor = '#3B82F6';
+      
+      // Update tab content
+      tabContents.forEach(content => {
+        content.style.display = 'none';
+      });
+      document.getElementById(`${targetTab}Tab`).style.display = 'block';
+    });
+  });
+
+  // Wire up search tab
+  setupSearchTab();
+  
+  // Wire up layers tab
+  setupLayersTab();
+  
+  // Setup close button for route info sidebar
+  const closeRouteInfoBtn = document.getElementById('closeRouteInfoBtn');
+  const routeInfoSidebar = document.getElementById('routeInfoSidebar');
+  if (closeRouteInfoBtn && routeInfoSidebar) {
+    closeRouteInfoBtn.addEventListener('click', () => {
+      routeInfoSidebar.style.display = 'none';
+    });
+  }
+
+  // Initialize Lucide icons
+  if (typeof lucide !== 'undefined') {
+    lucide.createIcons();
+  }
+
+  // Update stats text
+  updateStatsText();
+}
+
+// Setup search tab functionality
+function setupSearchTab() {
+  const searchInputSidebar = document.getElementById('searchInputSidebar');
+  const searchSuggestionSidebar = document.getElementById('searchSuggestionSidebar');
+  const searchContainer = document.getElementById('searchContainer');
+  const clearSearchBtn = document.getElementById('clearSearchBtn');
+  const radiusInputSidebar = document.getElementById('radiusInputSidebar');
+  const searchFromGeocoderBtnSidebar = document.getElementById('searchFromGeocoderBtnSidebar');
+  const searchFromSelectedBtnSidebar = document.getElementById('searchFromSelectedBtnSidebar');
+
+  // Show/hide clear button
+  searchInputSidebar.addEventListener('input', () => {
+    const val = searchInputSidebar.value;
+    clearSearchBtn.style.display = val ? 'block' : 'none';
+    
+    clearTimeout(searchTimer);
+    searchTimer = setTimeout(() => {
+      if (!val.trim()) {
+        showDefaultSuggestionsSidebar();
+        return;
+      }
+      handleSearchSidebar(val, false);
+    }, 250);
+  });
+
+  // Clear button handler
+  clearSearchBtn.addEventListener('click', () => {
+    searchInputSidebar.value = '';
+    clearSearchBtn.style.display = 'none';
+    searchSuggestionSidebar.style.display = 'none';
+    searchInputSidebar.focus();
+  });
+
+  // Focus effect - Google Maps style
+  searchInputSidebar.addEventListener('focus', () => {
+    searchContainer.style.boxShadow = '0 4px 12px rgba(0, 0, 0, 0.25)';
+    if (!searchInputSidebar.value.trim()) {
+      showDefaultSuggestionsSidebar();
+    }
+  });
+
+  searchInputSidebar.addEventListener('blur', () => {
+    searchContainer.style.boxShadow = '0 2px 8px rgba(0, 0, 0, 0.15)';
+  });
+
+  // Close dropdown when clicking outside
+  document.addEventListener('click', (e) => {
+    if (!searchContainer.contains(e.target) && !searchSuggestionSidebar.contains(e.target)) {
+      searchSuggestionSidebar.style.display = 'none';
+    }
+  });
+
+  // Search input handler
+  let searchTimer = null;
+
+  searchInputSidebar.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      handleSearchSidebar(searchInputSidebar.value);
+    }
+  });
+
+  // Radius search handlers
+  searchFromGeocoderBtnSidebar.addEventListener('click', () => {
+    const radius = Number(radiusInputSidebar.value) || 0;
+    if (!lastGeocoderPoint) {
+      alert('Hãy tìm một vị trí (geocoder) trước.');
+      return;
+    }
+    runNearbySearchSidebar(lastGeocoderPoint, radius, 'vị trí tìm kiếm');
+  });
+
+  searchFromSelectedBtnSidebar.addEventListener('click', () => {
+    const radius = Number(radiusInputSidebar.value) || 0;
+    if (!lastSelectedIndustrial) {
+      alert('Hãy click chọn một KCN/CCN trước.');
+      return;
+    }
+    const coords = lastSelectedIndustrial.geometry?.coordinates;
+    runNearbySearchSidebar(coords, radius, lastSelectedIndustrial.properties?.name || 'điểm đã chọn');
+  });
+}
+
+// Handle search in sidebar
+async function handleSearchSidebar(query, autoFocus = true) {
+  const q = (query || '').trim();
+  lastSearchQuery = q;
+  const searchSuggestionSidebar = document.getElementById('searchSuggestionSidebar');
+  
+  if (q.length < 2) {
+    searchSuggestionSidebar.style.display = 'none';
+    return;
+  }
+  
+  searchSuggestionSidebar.style.display = 'block';
+  searchSuggestionSidebar.innerHTML = 'Đang tìm...';
+  
+  const [izMatches, osmMatches, strategicMatches] = await Promise.all([
+    Promise.resolve(localSearchIndustrial(q)),
+    nominatimFetch(q),
+    enhanceSearchWithStrategicLocations(q),
+  ]);
+  
+  // Prioritize: Industrial zones first, then strategic locations, then OSM
+  // Increase limit to 20 results to show more options
+  const combined = [...izMatches, ...strategicMatches, ...osmMatches].slice(0, 20);
+  if (!combined.length) {
+    searchSuggestionSidebar.innerHTML = 'Không tìm thấy.';
+    return;
+  }
+  
+  renderSuggestionsSidebar(combined);
+  if (autoFocus) focusSuggestion(combined[0]);
+}
+
+// Render suggestions in sidebar - Google Maps style
+function renderSuggestionsSidebar(items) {
+  const searchSuggestionSidebar = document.getElementById('searchSuggestionSidebar');
+  searchSuggestionSidebar.style.display = 'block';
+  
+  searchSuggestionSidebar.innerHTML = items
+    .map((item, idx) => {
+      // Determine icon based on type
+      let icon = 'map-pin';
+      let iconColor = '#5f6368';
+      let sublabel = '';
+      
+      if (item.type === 'iz') {
+        icon = 'factory';
+        iconColor = '#ff9f1c';
+        // Show province and additional info for industrial zones
+        const props = item.feature?.properties || {};
+        const parts = [];
+        if (props.province) parts.push(props.province);
+        if (props.acreage) parts.push(`${props.acreage} ha`);
+        sublabel = parts.join(' • ');
+      } else if (item.type === 'strategic') {
+        icon = 'map-pin';
+        iconColor = '#3B82F6';
+        // Extract type name from label (it's in parentheses)
+        const match = item.label.match(/\(([^)]+)\)/);
+        sublabel = match ? match[1] : 'Địa điểm quan trọng';
+      } else if (item.type === 'osm') {
+        icon = 'search';
+        iconColor = '#5f6368';
+        sublabel = 'OpenStreetMap';
+      }
+      
+      return `
+        <div data-idx="${idx}" style="
+          padding: 12px 16px;
+          cursor: pointer;
+          display: flex;
+          align-items: center;
+          gap: 12px;
+          transition: background 0.15s ease;
+          border-bottom: 1px solid #f0f0f0;
+        " class="suggestion-item">
+          <i data-lucide="${icon}" style="width: 20px; height: 20px; color: ${iconColor}; flex-shrink: 0;"></i>
+          <div style="flex: 1; min-width: 0;">
+            <div style="color: #202124; font-size: 14px; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+              ${item.label}
+            </div>
+            ${sublabel ? `<div style="color: #5f6368; font-size: 12px; margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+              ${sublabel}
+            </div>` : ''}
+          </div>
+        </div>
+      `;
+    })
+    .join('');
+  
+  // Initialize Lucide icons
+  if (typeof lucide !== 'undefined') {
+    lucide.createIcons();
+  }
+  
+  searchSuggestionSidebar.querySelectorAll('.suggestion-item').forEach((el) => {
+    el.addEventListener('mouseenter', () => {
+      el.style.background = '#f5f5f5';
+    });
+    el.addEventListener('mouseleave', () => {
+      el.style.background = 'transparent';
+    });
+    el.addEventListener('click', () => {
+      const idx = Number(el.dataset.idx || 0);
+      focusSuggestion(items[idx]);
+      searchSuggestionSidebar.style.display = 'none';
+    });
+  });
+}
+// Show default suggestions in sidebar
+function showDefaultSuggestionsSidebar() {
+  if (!industrialGeojson?.features?.length) return;
+  const items = industrialGeojson.features.slice(0, 8).map((feature) => ({
+    type: "iz",
+    label: feature.properties?.name || "KCN/CCN",
+    coords: feature.geometry?.coordinates,
+    feature,
+  }));
+  renderSuggestionsSidebar(items);
+}
+
+// Run nearby search from sidebar
+function runNearbySearchSidebar(center, radiusKm, label) {
+  const searchResultSidebar = document.getElementById('searchResultSidebar');
+  const searchListSidebar = document.getElementById('searchListSidebar');
+  
+  if (!center) {
+    searchResultSidebar.textContent = 'Không có dữ liệu tọa độ.';
+    searchListSidebar.style.display = 'none';
+    return;
+  }
+  
+  // Search industrial zones
+  const industrialResults = [];
+  if (industrialGeojson?.features?.length) {
+    industrialGeojson.features.forEach((feature) => {
+      const coords = feature.geometry?.coordinates;
+      if (!coords) return;
+      const dist = haversineDistance(center, coords);
+      if (dist <= radiusKm) {
+        industrialResults.push({
+          type: 'iz',
+          name: feature.properties?.name || 'Không rõ',
+          distance: dist,
+          feature: feature,
+          coords: coords
+        });
+      }
+    });
+  }
+  
+  // Search strategic locations
+  const strategicResults = [];
+  if (strategicLocationsSystem) {
+    const { locationManager } = strategicLocationsSystem;
+    const allLocationsData = locationManager.getAllLocations();
+    
+    if (allLocationsData?.features) {
+      allLocationsData.features.forEach((location) => {
+        const coords = location.geometry?.coordinates;
+        if (!coords) return;
+        const dist = haversineDistance(center, coords);
+        if (dist <= radiusKm) {
+          const locationType = location.properties?.type || location.properties?.locationType;
+          const typeName = locationType === 'seaport' ? 'Cảng biển' :
+                          locationType === 'airport' ? 'Sân bay' :
+                          locationType === 'city_center' ? 'Trung tâm TP' : 'Địa điểm';
+          strategicResults.push({
+            type: 'strategic',
+            name: location.properties?.name || 'Không rõ',
+            typeName: typeName,
+            distance: dist,
+            location: location,
+            coords: coords
+          });
+        }
+      });
+    }
+  }
+  
+  // Combine and sort by distance
+  const allResults = [...industrialResults, ...strategicResults].sort((a, b) => a.distance - b.distance);
+  
+  if (!allResults.length) {
+    searchResultSidebar.textContent = `Không tìm thấy địa điểm nào trong bán kính ${radiusKm} km quanh ${label}.`;
+    searchListSidebar.style.display = 'none';
+    return;
+  }
+  
+  const izCount = industrialResults.length;
+  const slCount = strategicResults.length;
+  searchResultSidebar.textContent = `Tìm thấy ${allResults.length} địa điểm (${izCount} KCN/CCN, ${slCount} địa điểm quan trọng) trong bán kính ${radiusKm} km quanh ${label}:`;
+  searchListSidebar.style.display = 'block';
+  
+  searchListSidebar.innerHTML = allResults.map((result) => {
+    const dist = result.distance.toFixed(2);
+    const icon = result.type === 'iz' ? '🏭' : 
+                 result.typeName === 'Cảng biển' ? '⚓' :
+                 result.typeName === 'Sân bay' ? '✈️' : '🏙️';
+    const typeLabel = result.type === 'iz' ? 'KCN/CCN' : result.typeName;
+    
+    const clickHandler = result.type === 'iz' 
+      ? `focusOnIndustrialFeature(industrialGeojson.features.find(f => f.properties.name === '${result.name.replace(/'/g, "\\'")}'))`
+      : `map.flyTo({ center: [${result.coords[0]}, ${result.coords[1]}], zoom: 13 })`;
+    
+    return `<div style="padding: 8px; cursor: pointer; border-radius: 4px; margin-bottom: 4px; background: rgba(255,255,255,0.05); border-left: 3px solid ${result.type === 'iz' ? '#ff9f1c' : '#3B82F6'};" 
+                 onmouseenter="this.style.background='rgba(255,255,255,0.1)'" 
+                 onmouseleave="this.style.background='rgba(255,255,255,0.05)'"
+                 onclick="${clickHandler}">
+      <div style="display: flex; align-items: center; gap: 8px;">
+        <span style="font-size: 18px;">${icon}</span>
+        <div style="flex: 1;">
+          <strong>${result.name}</strong><br>
+          <span style="color: rgba(255,255,255,0.6); font-size: 11px;">${typeLabel} • Cách ${dist} km</span>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// Setup layers tab functionality
+function setupLayersTab() {
+  const toggleProvinceBtnSidebar = document.getElementById('toggleProvinceBtnSidebar');
+  const provinceStatusSidebar = document.getElementById('provinceStatusSidebar');
+  const toggleCartoBtnSidebar = document.getElementById('toggleCartoBtnSidebar');
+  const cartoStatusSidebar = document.getElementById('cartoStatusSidebar');
+  const exportBtnSidebar = document.getElementById('exportBtnSidebar');
+
+  // Set initial province status to "Đang hiện" since it's enabled by default
+  provinceStatusSidebar.textContent = 'Đang hiện';
+  provinceStatusSidebar.style.color = '#10B981';
+
+  // Province layer toggle
+  toggleProvinceBtnSidebar.addEventListener('click', async () => {
+    provinceVisible = !provinceVisible;
+    provinceStatusSidebar.textContent = provinceVisible ? 'Đang hiện' : 'Đang ẩn';
+    provinceStatusSidebar.style.color = provinceVisible ? '#10B981' : '#EF4444';
+    
+    // Load on-demand nếu chưa load
+    if (provinceVisible && !provinceGeojson) {
+      provinceStatusSidebar.textContent = 'Đang tải...';
+      await loadProvinceBoundaries();
+      await addMaritimeClaims();
+      provinceStatusSidebar.textContent = 'Đang hiện';
+    }
+    
+    toggleProvinceLayer(provinceVisible);
+  });
+
+  // Map style toggle - Cycle through 3 styles: Streets → Satellite → Tencent
+  toggleCartoBtnSidebar.addEventListener('click', () => {
+    // Determine next style
+    let nextStyle;
+    let nextStyleName;
+    
+    if (currentBaseStyle === BASE_STYLE_STREET) {
+      nextStyle = BASE_STYLE_SAT;
+      nextStyleName = 'Satellite';
+    } else if (currentBaseStyle === BASE_STYLE_SAT) {
+      nextStyle = BASE_STYLE_TENCENT;
+      nextStyleName = '腾讯 (Tencent)';
+    } else {
+      nextStyle = BASE_STYLE_STREET;
+      nextStyleName = 'Streets';
+    }
+    
+    currentBaseStyle = nextStyle;
+    cartoStatusSidebar.innerHTML = `
+      ${nextStyleName}
+      <i data-lucide="chevron-right" style="width: 14px; height: 14px; opacity: 0.6;"></i>
+    `;
+    
+    // Re-initialize Lucide icons
+    if (typeof lucide !== 'undefined') {
+      lucide.createIcons();
+    }
+    
+    const needProvince = !!provinceGeojson;
+    const needIndustrial = !!industrialGeojson;
+    map.setStyle(currentBaseStyle);
+    map.once('styledata', () => {
+      if (needProvince) {
+        addProvinceLayer(provinceGeojson);
+      } else {
+        loadProvinceBoundaries();
+      }
+      addMaritimeClaims();
+      if (needIndustrial) {
+        addIndustrialLayer(industrialGeojson);
+        updateIndustrialCount(); // Update count after re-adding layer
+      } else {
+        loadIndustrialZones();
+      }
+    });
+  });
+
+  // Export button
+  exportBtnSidebar.addEventListener('click', () => {
+    const data = draw.getAll();
+    if (!data.features.length) {
+      alert('Chưa có đối tượng nào được vẽ.');
+      return;
+    }
+    const geojson = JSON.stringify(data, null, 2);
+    const blob = new Blob([geojson], { type: 'application/vnd.geo+json' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = 'industrial_zones.geojson';
+    link.click();
+    URL.revokeObjectURL(url);
+  });
+}
+
+// Update stats text
+function updateStatsText() {
+  const statsText = document.getElementById('statsText');
+  if (industrialGeojson?.features?.length) {
+    statsText.textContent = `Đang hiển thị ${industrialGeojson.features.length} khu CN/Cụm CN trên bản đồ.`;
+  } else {
+    statsText.textContent = 'Đang tải dữ liệu...';
+  }
+}
+
+// ==================== GPS INITIALIZATION ====================
+
+/**
+ * Initialize GPS/Geolocation functionality
+ */
+function initializeGPS() {
+  console.log('🌍 Initializing GPS/Geolocation...');
+  
+  const gpsButton = document.getElementById('gpsButton');
+  const searchFromMyLocationBtn = document.getElementById('searchFromMyLocationBtn');
+  
+  // GPS button click handler
+  if (gpsButton) {
+    gpsButton.addEventListener('click', () => {
+      getUserLocation();
+    });
+  }
+  
+  // "Find KCN/CCN near me" button handler
+  if (searchFromMyLocationBtn) {
+    searchFromMyLocationBtn.addEventListener('click', () => {
+      if (!userLocation) {
+        // Get location first, then search
+        const gpsBtn = document.getElementById('gpsButton');
+        gpsBtn.classList.add('loading');
+        
+        navigator.geolocation.getCurrentPosition(
+          (position) => {
+            const { latitude, longitude, accuracy } = position.coords;
+            
+            userLocation = {
+              lat: latitude,
+              lng: longitude,
+              accuracy: accuracy
+            };
+            
+            gpsBtn.classList.remove('loading');
+            gpsBtn.classList.add('active');
+            
+            showUserLocation(longitude, latitude, accuracy);
+            
+            // Now search nearby
+            findNearbyIndustrialZones();
+          },
+          (error) => {
+            gpsBtn.classList.remove('loading');
+            alert('❌ Không thể xác định vị trí của bạn. Vui lòng bật GPS và cho phép truy cập vị trí.');
+            console.error('Geolocation error:', error);
+          },
+          {
+            enableHighAccuracy: true,
+            timeout: 10000,
+            maximumAge: 0
+          }
+        );
+      } else {
+        // Location already available, just search
+        findNearbyIndustrialZones();
+      }
+    });
+  }
+  
+  // "Set manual location" button handler
+  const setManualLocationBtn = document.getElementById('setManualLocationBtn');
+  if (setManualLocationBtn) {
+    setManualLocationBtn.addEventListener('click', () => {
+      // Show options
+      const choice = confirm(
+        '📍 Chọn cách đặt vị trí:\n\n' +
+        'OK = Nhập tọa độ thủ công\n' +
+        'Cancel = Click trên bản đồ'
+      );
+      
+      if (choice) {
+        setManualLocation();
+      } else {
+        enableClickToSetLocation();
+      }
+    });
+  }
+  
+  // Initialize Lucide icons for GPS button
+  if (typeof lucide !== 'undefined') {
+    lucide.createIcons();
+  }
+  
+  console.log('✅ GPS/Geolocation initialized');
+}
+
+
+  </script>
+</body>
+</html>

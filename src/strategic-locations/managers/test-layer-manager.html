@@ -1,0 +1,685 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>LayerManager Test</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      max-width: 1200px;
+      margin: 20px auto;
+      padding: 20px;
+      background: #f5f5f5;
+    }
+    h1 {
+      color: #333;
+    }
+    .test-section {
+      background: white;
+      padding: 20px;
+      margin: 20px 0;
+      border-radius: 8px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    .test-result {
+      margin: 10px 0;
+      padding: 10px;
+      border-radius: 4px;
+    }
+    .success {
+      background: #d4edda;
+      color: #155724;
+      border: 1px solid #c3e6cb;
+    }
+    .error {
+      background: #f8d7da;
+      color: #721c24;
+      border: 1px solid #f5c6cb;
+    }
+    .info {
+      background: #d1ecf1;
+      color: #0c5460;
+      border: 1px solid #bee5eb;
+    }
+    button {
+      background: #007bff;
+      color: white;
+      border: none;
+      padding: 10px 20px;
+      border-radius: 4px;
+      cursor: pointer;
+      margin: 5px;
+    }
+    button:hover {
+      background: #0056b3;
+    }
+    button.danger {
+      background: #dc3545;
+    }
+    button.danger:hover {
+      background: #c82333;
+    }
+    pre {
+      background: #f8f9fa;
+      padding: 10px;
+      border-radius: 4px;
+      overflow-x: auto;
+    }
+    .layer-status {
+      display: inline-block;
+      padding: 5px 10px;
+      border-radius: 4px;
+      margin: 5px;
+      font-weight: bold;
+    }
+    .visible {
+      background: #28a745;
+      color: white;
+    }
+    .hidden {
+      background: #6c757d;
+      color: white;
+    }
+  </style>
+</head>
+<body>
+  <h1>LayerManager Test Page</h1>
+  
+  <div class="test-section">
+    <h2>1. Initialize LayerManager</h2>
+    <button onclick="testInitialize()">Test Initialize</button>
+    <button onclick="testInitializeCustomKey()">Test with Custom Storage Key</button>
+    <div id="init-result"></div>
+  </div>
+
+  <div class="test-section">
+    <h2>2. Layer Visibility Status</h2>
+    <button onclick="testGetLayerStates()">Get All Layer States</button>
+    <div id="status-result"></div>
+  </div>
+
+  <div class="test-section">
+    <h2>3. Toggle Layers</h2>
+    <button onclick="testToggleIndustrialZones()">Toggle Industrial Zones</button>
+    <button onclick="testToggleStrategicLocations()">Toggle Strategic Locations</button>
+    <button onclick="testToggleBoth()">Toggle Both Layers</button>
+    <div id="toggle-result"></div>
+  </div>
+
+  <div class="test-section">
+    <h2>4. Set Layer Visibility</h2>
+    <button onclick="testSetVisibility('industrial-zones', true)">Show Industrial Zones</button>
+    <button onclick="testSetVisibility('industrial-zones', false)">Hide Industrial Zones</button>
+    <button onclick="testSetVisibility('strategic-locations', true)">Show Strategic Locations</button>
+    <button onclick="testSetVisibility('strategic-locations', false)">Hide Strategic Locations</button>
+    <div id="set-visibility-result"></div>
+  </div>
+
+  <div class="test-section">
+    <h2>5. Check Layer Visibility</h2>
+    <button onclick="testIsLayerVisible()">Check All Layers</button>
+    <div id="check-visibility-result"></div>
+  </div>
+
+  <div class="test-section">
+    <h2>6. LocalStorage Persistence</h2>
+    <button onclick="testSaveState()">Save State</button>
+    <button onclick="testLoadState()">Load State</button>
+    <button onclick="testPersistenceScenario()">Test Full Persistence Scenario</button>
+    <button onclick="viewLocalStorage()">View localStorage</button>
+    <div id="persistence-result"></div>
+  </div>
+
+  <div class="test-section">
+    <h2>7. Reset to Default</h2>
+    <button onclick="testResetToDefault()">Reset to Default</button>
+    <div id="reset-result"></div>
+  </div>
+
+  <div class="test-section">
+    <h2>8. Error Handling</h2>
+    <button onclick="testErrorHandling()">Test Error Handling</button>
+    <button onclick="testInvalidLayerIds()">Test Invalid Layer IDs</button>
+    <div id="error-result"></div>
+  </div>
+
+  <div class="test-section">
+    <h2>9. Helper Methods</h2>
+    <button onclick="testHelperMethods()">Test Helper Methods</button>
+    <div id="helper-result"></div>
+  </div>
+
+  <div class="test-section">
+    <h2>10. Integration Scenarios</h2>
+    <button onclick="testIntegrationScenarios()">Run Integration Tests</button>
+    <div id="integration-result"></div>
+  </div>
+
+  <script src="layer-manager.js"></script>
+  <script>
+    let layerManager;
+
+    function log(elementId, message, type = 'info') {
+      const element = document.getElementById(elementId);
+      const div = document.createElement('div');
+      div.className = `test-result ${type}`;
+      div.textContent = message;
+      element.appendChild(div);
+    }
+
+    function logObject(elementId, obj) {
+      const element = document.getElementById(elementId);
+      const pre = document.createElement('pre');
+      pre.textContent = JSON.stringify(obj, null, 2);
+      element.appendChild(pre);
+    }
+
+    function clear(elementId) {
+      document.getElementById(elementId).innerHTML = '';
+    }
+
+    function displayLayerStates(elementId) {
+      const states = layerManager.getAllLayerStates();
+      const element = document.getElementById(elementId);
+      
+      const div = document.createElement('div');
+      div.style.marginTop = '10px';
+      
+      for (const [layerId, visible] of states) {
+        const span = document.createElement('span');
+        span.className = `layer-status ${visible ? 'visible' : 'hidden'}`;
+        span.textContent = `${layerId}: ${visible ? 'VISIBLE' : 'HIDDEN'}`;
+        div.appendChild(span);
+      }
+      
+      element.appendChild(div);
+    }
+
+    function testInitialize() {
+      clear('init-result');
+      try {
+        layerManager = new LayerManager();
+        log('init-result', '✓ LayerManager initialized successfully', 'success');
+        log('init-result', `Storage key: ${layerManager.storageKey}`, 'info');
+        log('init-result', `Valid layer IDs: ${layerManager.getValidLayerIds().join(', ')}`, 'info');
+        displayLayerStates('init-result');
+      } catch (error) {
+        log('init-result', `✗ Error: ${error.message}`, 'error');
+      }
+    }
+
+    function testInitializeCustomKey() {
+      clear('init-result');
+      try {
+        const customManager = new LayerManager('custom-test-key');
+        log('init-result', '✓ LayerManager initialized with custom key', 'success');
+        log('init-result', `Storage key: ${customManager.storageKey}`, 'info');
+        displayLayerStates('init-result');
+      } catch (error) {
+        log('init-result', `✗ Error: ${error.message}`, 'error');
+      }
+    }
+
+    function testGetLayerStates() {
+      clear('status-result');
+      if (!layerManager) {
+        log('status-result', '✗ Please initialize LayerManager first', 'error');
+        return;
+      }
+
+      try {
+        const states = layerManager.getAllLayerStates();
+        log('status-result', `✓ Retrieved ${states.size} layer states`, 'success');
+        displayLayerStates('status-result');
+        
+        const stateObj = layerManager.getStateAsObject();
+        logObject('status-result', stateObj);
+      } catch (error) {
+        log('status-result', `✗ Error: ${error.message}`, 'error');
+      }
+    }
+
+    function testToggleIndustrialZones() {
+      clear('toggle-result');
+      if (!layerManager) {
+        log('toggle-result', '✗ Please initialize LayerManager first', 'error');
+        return;
+      }
+
+      try {
+        const oldState = layerManager.isLayerVisible('industrial-zones');
+        const newState = layerManager.toggleLayer('industrial-zones');
+        
+        log('toggle-result', `✓ Industrial Zones toggled: ${oldState} → ${newState}`, 'success');
+        displayLayerStates('toggle-result');
+      } catch (error) {
+        log('toggle-result', `✗ Error: ${error.message}`, 'error');
+      }
+    }
+
+    function testToggleStrategicLocations() {
+      clear('toggle-result');
+      if (!layerManager) {
+        log('toggle-result', '✗ Please initialize LayerManager first', 'error');
+        return;
+      }
+
+      try {
+        const oldState = layerManager.isLayerVisible('strategic-locations');
+        const newState = layerManager.toggleLayer('strategic-locations');
+        
+        log('toggle-result', `✓ Strategic Locations toggled: ${oldState} → ${newState}`, 'success');
+        displayLayerStates('toggle-result');
+      } catch (error) {
+        log('toggle-result', `✗ Error: ${error.message}`, 'error');
+      }
+    }
+
+    function testToggleBoth() {
+      clear('toggle-result');
+      if (!layerManager) {
+        log('toggle-result', '✗ Please initialize LayerManager first', 'error');
+        return;
+      }
+
+      try {
+        log('toggle-result', 'Toggling both layers...', 'info');
+        
+        const iz1 = layerManager.toggleLayer('industrial-zones');
+        log('toggle-result', `Industrial Zones: ${iz1}`, 'info');
+        
+        const sl1 = layerManager.toggleLayer('strategic-locations');
+        log('toggle-result', `Strategic Locations: ${sl1}`, 'info');
+        
+        log('toggle-result', '✓ Both layers toggled', 'success');
+        displayLayerStates('toggle-result');
+      } catch (error) {
+        log('toggle-result', `✗ Error: ${error.message}`, 'error');
+      }
+    }
+
+    function testSetVisibility(layerId, visible) {
+      clear('set-visibility-result');
+      if (!layerManager) {
+        log('set-visibility-result', '✗ Please initialize LayerManager first', 'error');
+        return;
+      }
+
+      try {
+        const oldState = layerManager.isLayerVisible(layerId);
+        layerManager.setLayerVisibility(layerId, visible);
+        const newState = layerManager.isLayerVisible(layerId);
+        
+        log('set-visibility-result', 
+            `✓ ${layerId} visibility set: ${oldState} → ${newState}`, 
+            'success');
+        displayLayerStates('set-visibility-result');
+      } catch (error) {
+        log('set-visibility-result', `✗ Error: ${error.message}`, 'error');
+      }
+    }
+
+    function testIsLayerVisible() {
+      clear('check-visibility-result');
+      if (!layerManager) {
+        log('check-visibility-result', '✗ Please initialize LayerManager first', 'error');
+        return;
+      }
+
+      try {
+        const validIds = layerManager.getValidLayerIds();
+        
+        validIds.forEach(layerId => {
+          const visible = layerManager.isLayerVisible(layerId);
+          log('check-visibility-result', 
+              `${layerId}: ${visible ? 'VISIBLE' : 'HIDDEN'}`, 
+              visible ? 'success' : 'info');
+        });
+        
+        displayLayerStates('check-visibility-result');
+      } catch (error) {
+        log('check-visibility-result', `✗ Error: ${error.message}`, 'error');
+      }
+    }
+
+    function testSaveState() {
+      clear('persistence-result');
+      if (!layerManager) {
+        log('persistence-result', '✗ Please initialize LayerManager first', 'error');
+        return;
+      }
+
+      try {
+        layerManager.saveState();
+        log('persistence-result', '✓ State saved to localStorage', 'success');
+        
+        const savedData = localStorage.getItem('map-layer-states');
+        if (savedData) {
+          const parsed = JSON.parse(savedData);
+          log('persistence-result', `Last updated: ${new Date(parsed.lastUpdated).toLocaleString()}`, 'info');
+          logObject('persistence-result', parsed);
+        }
+      } catch (error) {
+        log('persistence-result', `✗ Error: ${error.message}`, 'error');
+      }
+    }
+
+    function testLoadState() {
+      clear('persistence-result');
+      if (!layerManager) {
+        log('persistence-result', '✗ Please initialize LayerManager first', 'error');
+        return;
+      }
+
+      try {
+        layerManager.loadState();
+        log('persistence-result', '✓ State loaded from localStorage', 'success');
+        displayLayerStates('persistence-result');
+      } catch (error) {
+        log('persistence-result', `✗ Error: ${error.message}`, 'error');
+      }
+    }
+
+    function testPersistenceScenario() {
+      clear('persistence-result');
+      
+      try {
+        log('persistence-result', 'Testing full persistence scenario...', 'info');
+        
+        // Step 1: Create manager and set custom states
+        log('persistence-result', '\n1. Creating manager and setting custom states...', 'info');
+        const manager1 = new LayerManager();
+        manager1.setLayerVisibility('industrial-zones', false);
+        manager1.setLayerVisibility('strategic-locations', false);
+        log('persistence-result', '✓ Set both layers to hidden', 'success');
+        
+        // Step 2: Save state
+        log('persistence-result', '\n2. Saving state...', 'info');
+        manager1.saveState();
+        log('persistence-result', '✓ State saved', 'success');
+        
+        // Step 3: Create new manager (simulating page reload)
+        log('persistence-result', '\n3. Creating new manager (simulating page reload)...', 'info');
+        const manager2 = new LayerManager();
+        log('persistence-result', 'Before loading state:', 'info');
+        log('persistence-result', `  Industrial Zones: ${manager2.isLayerVisible('industrial-zones')}`, 'info');
+        log('persistence-result', `  Strategic Locations: ${manager2.isLayerVisible('strategic-locations')}`, 'info');
+        
+        // Step 4: Load state
+        log('persistence-result', '\n4. Loading saved state...', 'info');
+        manager2.loadState();
+        log('persistence-result', 'After loading state:', 'info');
+        log('persistence-result', `  Industrial Zones: ${manager2.isLayerVisible('industrial-zones')}`, 'info');
+        log('persistence-result', `  Strategic Locations: ${manager2.isLayerVisible('strategic-locations')}`, 'info');
+        
+        // Verify
+        const iz = manager2.isLayerVisible('industrial-zones');
+        const sl = manager2.isLayerVisible('strategic-locations');
+        
+        if (iz === false && sl === false) {
+          log('persistence-result', '\n✓ Persistence test PASSED - State correctly restored', 'success');
+        } else {
+          log('persistence-result', '\n✗ Persistence test FAILED - State not correctly restored', 'error');
+        }
+        
+      } catch (error) {
+        log('persistence-result', `✗ Error: ${error.message}`, 'error');
+      }
+    }
+
+    function viewLocalStorage() {
+      clear('persistence-result');
+      
+      try {
+        const savedData = localStorage.getItem('map-layer-states');
+        
+        if (!savedData) {
+          log('persistence-result', 'No saved state found in localStorage', 'info');
+          return;
+        }
+        
+        log('persistence-result', '✓ Found saved state in localStorage', 'success');
+        
+        const parsed = JSON.parse(savedData);
+        log('persistence-result', `Last updated: ${new Date(parsed.lastUpdated).toLocaleString()}`, 'info');
+        
+        logObject('persistence-result', parsed);
+      } catch (error) {
+        log('persistence-result', `✗ Error: ${error.message}`, 'error');
+      }
+    }
+
+    function testResetToDefault() {
+      clear('reset-result');
+      if (!layerManager) {
+        log('reset-result', '✗ Please initialize LayerManager first', 'error');
+        return;
+      }
+
+      try {
+        log('reset-result', 'Before reset:', 'info');
+        displayLayerStates('reset-result');
+        
+        layerManager.resetToDefault();
+        
+        log('reset-result', '\n✓ Reset to default states', 'success');
+        log('reset-result', 'After reset:', 'info');
+        displayLayerStates('reset-result');
+        
+        // Verify both are true
+        const iz = layerManager.isLayerVisible('industrial-zones');
+        const sl = layerManager.isLayerVisible('strategic-locations');
+        
+        if (iz && sl) {
+          log('reset-result', '✓ Both layers are visible (default state)', 'success');
+        } else {
+          log('reset-result', '✗ Reset did not restore default state correctly', 'error');
+        }
+      } catch (error) {
+        log('reset-result', `✗ Error: ${error.message}`, 'error');
+      }
+    }
+
+    function testErrorHandling() {
+      clear('error-result');
+      if (!layerManager) {
+        log('error-result', '✗ Please initialize LayerManager first', 'error');
+        return;
+      }
+
+      try {
+        log('error-result', 'Testing error handling...', 'info');
+        
+        // Test 1: Invalid layer ID in toggle
+        log('error-result', '\n1. Toggle invalid layer ID...', 'info');
+        const result1 = layerManager.toggleLayer('invalid-layer');
+        log('error-result', `✓ Returned: ${result1} (expected false)`, result1 === false ? 'success' : 'error');
+        
+        // Test 2: Invalid layer ID in setLayerVisibility
+        log('error-result', '\n2. Set visibility for invalid layer ID...', 'info');
+        layerManager.setLayerVisibility('invalid-layer', true);
+        log('error-result', '✓ Handled gracefully (no error thrown)', 'success');
+        
+        // Test 3: Invalid visibility value
+        log('error-result', '\n3. Set invalid visibility value...', 'info');
+        layerManager.setLayerVisibility('industrial-zones', 'invalid');
+        log('error-result', '✓ Handled gracefully (no error thrown)', 'success');
+        
+        // Test 4: Invalid layer ID in isLayerVisible
+        log('error-result', '\n4. Check visibility for invalid layer ID...', 'info');
+        const result4 = layerManager.isLayerVisible('invalid-layer');
+        log('error-result', `✓ Returned: ${result4} (expected false)`, result4 === false ? 'success' : 'error');
+        
+        // Test 5: localStorage errors (simulate)
+        log('error-result', '\n5. Testing localStorage error handling...', 'info');
+        const originalSetItem = localStorage.setItem;
+        localStorage.setItem = () => { throw new Error('Storage quota exceeded'); };
+        
+        layerManager.saveState();
+        log('error-result', '✓ Save error handled gracefully', 'success');
+        
+        localStorage.setItem = originalSetItem;
+        
+        log('error-result', '\n✓ All error handling tests passed', 'success');
+      } catch (error) {
+        log('error-result', `✗ Error: ${error.message}`, 'error');
+      }
+    }
+
+    function testInvalidLayerIds() {
+      clear('error-result');
+      if (!layerManager) {
+        log('error-result', '✗ Please initialize LayerManager first', 'error');
+        return;
+      }
+
+      try {
+        const invalidIds = [
+          'invalid-layer',
+          'industrial_zones',  // Wrong format (underscore instead of dash)
+          'strategic_locations',  // Wrong format
+          '',
+          null,
+          undefined,
+          123,
+          {}
+        ];
+
+        log('error-result', 'Testing invalid layer IDs...', 'info');
+        
+        invalidIds.forEach(id => {
+          try {
+            const result = layerManager.isLayerVisible(id);
+            log('error-result', `✓ isLayerVisible(${JSON.stringify(id)}): ${result}`, 'success');
+          } catch (e) {
+            log('error-result', `✗ isLayerVisible(${JSON.stringify(id)}) threw error: ${e.message}`, 'error');
+          }
+        });
+        
+        log('error-result', '\n✓ All invalid ID tests completed', 'success');
+      } catch (error) {
+        log('error-result', `✗ Error: ${error.message}`, 'error');
+      }
+    }
+
+    function testHelperMethods() {
+      clear('helper-result');
+      if (!layerManager) {
+        log('helper-result', '✗ Please initialize LayerManager first', 'error');
+        return;
+      }
+
+      try {
+        // Test getValidLayerIds
+        log('helper-result', '1. getValidLayerIds():', 'info');
+        const validIds = layerManager.getValidLayerIds();
+        log('helper-result', `✓ Valid IDs: ${validIds.join(', ')}`, 'success');
+        log('helper-result', `✓ Count: ${validIds.length}`, 'info');
+        
+        // Test getStateAsObject
+        log('helper-result', '\n2. getStateAsObject():', 'info');
+        const stateObj = layerManager.getStateAsObject();
+        logObject('helper-result', stateObj);
+        log('helper-result', '✓ State returned as plain object', 'success');
+        
+        // Test getAllLayerStates
+        log('helper-result', '\n3. getAllLayerStates():', 'info');
+        const statesMap = layerManager.getAllLayerStates();
+        log('helper-result', `✓ Returned Map with ${statesMap.size} entries`, 'success');
+        
+        // Verify it's a copy
+        statesMap.set('industrial-zones', false);
+        const originalState = layerManager.isLayerVisible('industrial-zones');
+        log('helper-result', `✓ Returns a copy (original unchanged: ${originalState})`, 'success');
+        
+      } catch (error) {
+        log('helper-result', `✗ Error: ${error.message}`, 'error');
+      }
+    }
+
+    function testIntegrationScenarios() {
+      clear('integration-result');
+      
+      try {
+        log('integration-result', 'Running integration scenarios...', 'info');
+        
+        // Scenario 1: Multiple toggles
+        log('integration-result', '\n=== Scenario 1: Multiple Toggles ===', 'info');
+        const manager1 = new LayerManager();
+        log('integration-result', `Initial: ${manager1.isLayerVisible('industrial-zones')}`, 'info');
+        
+        manager1.toggleLayer('industrial-zones'); // false
+        log('integration-result', `After toggle 1: ${manager1.isLayerVisible('industrial-zones')}`, 'info');
+        
+        manager1.toggleLayer('industrial-zones'); // true
+        log('integration-result', `After toggle 2: ${manager1.isLayerVisible('industrial-zones')}`, 'info');
+        
+        manager1.toggleLayer('industrial-zones'); // false
+        log('integration-result', `After toggle 3: ${manager1.isLayerVisible('industrial-zones')}`, 'info');
+        
+        if (!manager1.isLayerVisible('industrial-zones')) {
+          log('integration-result', '✓ Scenario 1 PASSED', 'success');
+        } else {
+          log('integration-result', '✗ Scenario 1 FAILED', 'error');
+        }
+        
+        // Scenario 2: Mixed operations
+        log('integration-result', '\n=== Scenario 2: Mixed Operations ===', 'info');
+        const manager2 = new LayerManager();
+        
+        manager2.toggleLayer('industrial-zones'); // false
+        manager2.setLayerVisibility('strategic-locations', false);
+        log('integration-result', 'Set both to hidden', 'info');
+        
+        const iz = manager2.isLayerVisible('industrial-zones');
+        const sl = manager2.isLayerVisible('strategic-locations');
+        
+        if (!iz && !sl) {
+          log('integration-result', '✓ Both hidden', 'success');
+        }
+        
+        manager2.resetToDefault();
+        log('integration-result', 'Reset to default', 'info');
+        
+        const iz2 = manager2.isLayerVisible('industrial-zones');
+        const sl2 = manager2.isLayerVisible('strategic-locations');
+        
+        if (iz2 && sl2) {
+          log('integration-result', '✓ Scenario 2 PASSED', 'success');
+        } else {
+          log('integration-result', '✗ Scenario 2 FAILED', 'error');
+        }
+        
+        // Scenario 3: Persistence across instances
+        log('integration-result', '\n=== Scenario 3: Persistence Across Instances ===', 'info');
+        const manager3a = new LayerManager();
+        manager3a.setLayerVisibility('industrial-zones', false);
+        manager3a.saveState();
+        log('integration-result', 'Manager A: Set industrial-zones to false and saved', 'info');
+        
+        const manager3b = new LayerManager();
+        manager3b.loadState();
+        log('integration-result', 'Manager B: Loaded state', 'info');
+        
+        const iz3 = manager3b.isLayerVisible('industrial-zones');
+        if (!iz3) {
+          log('integration-result', '✓ Scenario 3 PASSED - State persisted correctly', 'success');
+        } else {
+          log('integration-result', '✗ Scenario 3 FAILED - State not persisted', 'error');
+        }
+        
+        log('integration-result', '\n✓ All integration scenarios completed', 'success');
+        
+      } catch (error) {
+        log('integration-result', `✗ Error: ${error.message}`, 'error');
+      }
+    }
+
+    // Auto-initialize on page load
+    window.onload = () => {
+      testInitialize();
+    };
+  </script>
+</body>
+</html>

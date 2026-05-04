@@ -1,0 +1,654 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MapLocationRenderer Test</title>
+  
+  <!-- Mapbox GL JS -->
+  <link href="https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.css" rel="stylesheet">
+  <script src="https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.js"></script>
+  
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+  
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 0;
+      padding: 0;
+      background: #f5f5f5;
+    }
+    .container {
+      display: flex;
+      height: 100vh;
+    }
+    .sidebar {
+      width: 400px;
+      background: white;
+      padding: 20px;
+      overflow-y: auto;
+      box-shadow: 2px 0 4px rgba(0,0,0,0.1);
+    }
+    .map-container {
+      flex: 1;
+      position: relative;
+    }
+    #map {
+      width: 100%;
+      height: 100%;
+    }
+    h1 {
+      color: #333;
+      margin: 0 0 20px 0;
+      font-size: 24px;
+    }
+    h2 {
+      color: #555;
+      font-size: 16px;
+      margin: 20px 0 10px 0;
+      border-bottom: 2px solid #007bff;
+      padding-bottom: 5px;
+    }
+    .test-section {
+      margin: 15px 0;
+      padding: 15px;
+      background: #f8f9fa;
+      border-radius: 8px;
+    }
+    .test-result {
+      margin: 8px 0;
+      padding: 8px;
+      border-radius: 4px;
+      font-size: 13px;
+    }
+    .success {
+      background: #d4edda;
+      color: #155724;
+      border: 1px solid #c3e6cb;
+    }
+    .error {
+      background: #f8d7da;
+      color: #721c24;
+      border: 1px solid #f5c6cb;
+    }
+    .info {
+      background: #d1ecf1;
+      color: #0c5460;
+      border: 1px solid #bee5eb;
+    }
+    button {
+      background: #007bff;
+      color: white;
+      border: none;
+      padding: 8px 16px;
+      border-radius: 4px;
+      cursor: pointer;
+      margin: 5px 5px 5px 0;
+      font-size: 13px;
+    }
+    button:hover {
+      background: #0056b3;
+    }
+    button.danger {
+      background: #dc3545;
+    }
+    button.danger:hover {
+      background: #c82333;
+    }
+    button.success {
+      background: #28a745;
+    }
+    button.success:hover {
+      background: #218838;
+    }
+    .stats {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin: 10px 0;
+    }
+    .stat-box {
+      background: white;
+      padding: 10px;
+      border-radius: 4px;
+      border: 1px solid #dee2e6;
+    }
+    .stat-label {
+      font-size: 11px;
+      color: #6c757d;
+      text-transform: uppercase;
+    }
+    .stat-value {
+      font-size: 20px;
+      font-weight: bold;
+      color: #007bff;
+    }
+    
+    /* Strategic Location Marker Styles */
+    .strategic-location-marker {
+      cursor: pointer;
+      transition: transform 0.2s;
+    }
+    .strategic-location-marker:hover {
+      transform: scale(1.2);
+      z-index: 1000;
+    }
+    .marker-icon {
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+      border: 2px solid white;
+    }
+    
+    /* Popup Styles */
+    .strategic-location-popup {
+      font-family: Arial, sans-serif;
+    }
+    .popup-header h4 {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="sidebar">
+      <h1>MapLocationRenderer Test</h1>
+      
+      <div class="stats">
+        <div class="stat-box">
+          <div class="stat-label">Markers</div>
+          <div class="stat-value" id="markerCount">0</div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-label">Layers</div>
+          <div class="stat-value" id="layerCount">0</div>
+        </div>
+      </div>
+
+      <div class="test-section">
+        <h2>1. Initialize</h2>
+        <button onclick="testInitialize()">Initialize Renderer</button>
+        <div id="init-result"></div>
+      </div>
+
+      <div class="test-section">
+        <h2>2. Render Test Data</h2>
+        <button onclick="testRenderPoints()">Render Points</button>
+        <button onclick="testRenderLines()">Render Lines</button>
+        <button onclick="testRenderPolygons()">Render Polygons</button>
+        <button onclick="testRenderAll()">Render All Types</button>
+        <div id="render-result"></div>
+      </div>
+
+      <div class="test-section">
+        <h2>3. Toggle Visibility</h2>
+        <button onclick="toggleStrategicLocations()">Toggle Strategic Locations</button>
+        <button onclick="toggleIndustrialZones()">Toggle Industrial Zones</button>
+        <div id="toggle-result"></div>
+      </div>
+
+      <div class="test-section">
+        <h2>4. Clear & Reset</h2>
+        <button class="danger" onclick="testClear()">Clear All</button>
+        <button onclick="testRenderAll()">Re-render</button>
+        <div id="clear-result"></div>
+      </div>
+
+      <div class="test-section">
+        <h2>5. Highlight Location</h2>
+        <button onclick="testHighlightPoint()">Highlight Point</button>
+        <button onclick="testHighlightLine()">Highlight Line</button>
+        <button onclick="testHighlightPolygon()">Highlight Polygon</button>
+        <div id="highlight-result"></div>
+      </div>
+
+      <div class="test-section">
+        <h2>6. Load Real Data</h2>
+        <button class="success" onclick="testLoadRealData()">Load Real Locations</button>
+        <div id="real-data-result"></div>
+      </div>
+
+      <div class="test-section">
+        <h2>Test Log</h2>
+        <div id="test-log" style="max-height: 200px; overflow-y: auto; font-size: 12px;"></div>
+      </div>
+    </div>
+
+    <div class="map-container">
+      <div id="map"></div>
+    </div>
+  </div>
+
+  <script src="../managers/location-manager.js"></script>
+  <script src="map-location-renderer.js"></script>
+  <script>
+    let map;
+    let renderer;
+    let locationManager;
+
+    // Test data
+    const testLocations = {
+      points: {
+        type: 'FeatureCollection',
+        features: [
+          {
+            type: 'Feature',
+            geometry: { type: 'Point', coordinates: [106.7, 10.8] },
+            properties: {
+              locationType: 'seaport',
+              name: 'Test Seaport 1',
+              'name:vi': 'Cảng thử nghiệm 1'
+            }
+          },
+          {
+            type: 'Feature',
+            geometry: { type: 'Point', coordinates: [106.65, 10.82] },
+            properties: {
+              locationType: 'airport',
+              name: 'Test Airport 1',
+              'name:vi': 'Sân bay thử nghiệm 1'
+            }
+          },
+          {
+            type: 'Feature',
+            geometry: { type: 'Point', coordinates: [106.75, 10.77] },
+            properties: {
+              locationType: 'city_center',
+              name: 'Test City Center',
+              'name:vi': 'Trung tâm thử nghiệm'
+            }
+          }
+        ]
+      },
+      lines: {
+        type: 'FeatureCollection',
+        features: [
+          {
+            type: 'Feature',
+            geometry: {
+              type: 'LineString',
+              coordinates: [
+                [106.6, 10.7],
+                [106.7, 10.75],
+                [106.8, 10.8]
+              ]
+            },
+            properties: {
+              locationType: 'highway',
+              name: 'Test Highway 1',
+              'name:vi': 'Cao tốc thử nghiệm 1'
+            }
+          }
+        ]
+      },
+      polygons: {
+        type: 'FeatureCollection',
+        features: [
+          {
+            type: 'Feature',
+            geometry: {
+              type: 'Polygon',
+              coordinates: [[
+                [106.72, 10.85],
+                [106.78, 10.85],
+                [106.78, 10.90],
+                [106.72, 10.90],
+                [106.72, 10.85]
+              ]]
+            },
+            properties: {
+              locationType: 'residential',
+              name: 'Test Residential Area',
+              'name:vi': 'Khu dân cư thử nghiệm'
+            }
+          }
+        ]
+      }
+    };
+
+    const locationTypes = [
+      {
+        id: 'seaport',
+        name: 'Cảng biển',
+        icon: 'anchor',
+        color: '#0EA5E9',
+        geometryType: 'Point'
+      },
+      {
+        id: 'airport',
+        name: 'Sân bay',
+        icon: 'plane',
+        color: '#8B5CF6',
+        geometryType: 'Point'
+      },
+      {
+        id: 'highway',
+        name: 'Cao tốc',
+        icon: 'highway',
+        color: '#F59E0B',
+        geometryType: 'LineString'
+      },
+      {
+        id: 'city_center',
+        name: 'Trung tâm TP',
+        icon: 'building-2',
+        color: '#EF4444',
+        geometryType: 'Point'
+      },
+      {
+        id: 'residential',
+        name: 'Khu dân cư',
+        icon: 'home',
+        color: '#10B981',
+        geometryType: 'Polygon'
+      }
+    ];
+
+    // Utility functions
+    function log(elementId, message, type = 'info') {
+      const element = document.getElementById(elementId);
+      const div = document.createElement('div');
+      div.className = `test-result ${type}`;
+      div.textContent = message;
+      element.appendChild(div);
+
+      // Also log to test log
+      const logDiv = document.createElement('div');
+      logDiv.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
+      logDiv.style.color = type === 'success' ? '#155724' : type === 'error' ? '#721c24' : '#0c5460';
+      document.getElementById('test-log').appendChild(logDiv);
+      document.getElementById('test-log').scrollTop = document.getElementById('test-log').scrollHeight;
+    }
+
+    function clear(elementId) {
+      document.getElementById(elementId).innerHTML = '';
+    }
+
+    function updateStats() {
+      if (renderer) {
+        document.getElementById('markerCount').textContent = renderer.getMarkerCount();
+        document.getElementById('layerCount').textContent = renderer.getLayerCount();
+      }
+    }
+
+    // Initialize map
+    function initMap() {
+      mapboxgl.accessToken = 'pk.eyJ1IjoibWFwYm94IiwiYSI6ImNpejY4NXVycTA2emYycXBndHRqcmZ3N3gifQ.rJcFIG214AriISLbB6B5aw';
+      
+      map = new mapboxgl.Map({
+        container: 'map',
+        style: 'mapbox://styles/mapbox/streets-v12',
+        center: [106.7, 10.8], // Ho Chi Minh City
+        zoom: 10
+      });
+
+      map.on('load', () => {
+        log('test-log', 'Map loaded successfully', 'success');
+      });
+    }
+
+    // Test functions
+    function testInitialize() {
+      clear('init-result');
+      try {
+        if (!map) {
+          log('init-result', 'Initializing map first...', 'info');
+          initMap();
+          setTimeout(() => {
+            renderer = new MapLocationRenderer(map);
+            log('init-result', '✓ MapLocationRenderer initialized', 'success');
+            updateStats();
+          }, 1000);
+        } else {
+          renderer = new MapLocationRenderer(map);
+          log('init-result', '✓ MapLocationRenderer initialized', 'success');
+          updateStats();
+        }
+      } catch (error) {
+        log('init-result', `✗ Error: ${error.message}`, 'error');
+      }
+    }
+
+    function testRenderPoints() {
+      clear('render-result');
+      if (!renderer) {
+        log('render-result', '✗ Please initialize renderer first', 'error');
+        return;
+      }
+
+      try {
+        const pointTypes = locationTypes.filter(t => t.geometryType === 'Point');
+        renderer.renderStrategicLocations(testLocations.points, pointTypes);
+        log('render-result', `✓ Rendered ${testLocations.points.features.length} point markers`, 'success');
+        updateStats();
+      } catch (error) {
+        log('render-result', `✗ Error: ${error.message}`, 'error');
+      }
+    }
+
+    function testRenderLines() {
+      clear('render-result');
+      if (!renderer) {
+        log('render-result', '✗ Please initialize renderer first', 'error');
+        return;
+      }
+
+      try {
+        const lineTypes = locationTypes.filter(t => t.geometryType === 'LineString');
+        renderer.renderStrategicLocations(testLocations.lines, lineTypes);
+        log('render-result', `✓ Rendered ${testLocations.lines.features.length} line layers`, 'success');
+        updateStats();
+      } catch (error) {
+        log('render-result', `✗ Error: ${error.message}`, 'error');
+      }
+    }
+
+    function testRenderPolygons() {
+      clear('render-result');
+      if (!renderer) {
+        log('render-result', '✗ Please initialize renderer first', 'error');
+        return;
+      }
+
+      try {
+        const polygonTypes = locationTypes.filter(t => t.geometryType === 'Polygon');
+        renderer.renderStrategicLocations(testLocations.polygons, polygonTypes);
+        log('render-result', `✓ Rendered ${testLocations.polygons.features.length} polygon layers`, 'success');
+        updateStats();
+      } catch (error) {
+        log('render-result', `✗ Error: ${error.message}`, 'error');
+      }
+    }
+
+    function testRenderAll() {
+      clear('render-result');
+      if (!renderer) {
+        log('render-result', '✗ Please initialize renderer first', 'error');
+        return;
+      }
+
+      try {
+        // Combine all test data
+        const allData = {
+          type: 'FeatureCollection',
+          features: [
+            ...testLocations.points.features,
+            ...testLocations.lines.features,
+            ...testLocations.polygons.features
+          ]
+        };
+
+        renderer.renderStrategicLocations(allData, locationTypes);
+        log('render-result', `✓ Rendered all test locations (${allData.features.length} features)`, 'success');
+        log('render-result', `  - Points: ${testLocations.points.features.length}`, 'info');
+        log('render-result', `  - Lines: ${testLocations.lines.features.length}`, 'info');
+        log('render-result', `  - Polygons: ${testLocations.polygons.features.length}`, 'info');
+        updateStats();
+      } catch (error) {
+        log('render-result', `✗ Error: ${error.message}`, 'error');
+      }
+    }
+
+    function toggleStrategicLocations() {
+      clear('toggle-result');
+      if (!renderer) {
+        log('toggle-result', '✗ Please initialize renderer first', 'error');
+        return;
+      }
+
+      try {
+        const currentState = renderer.isStrategicLocationsVisible();
+        renderer.toggleStrategicLocations(!currentState);
+        const newState = renderer.isStrategicLocationsVisible();
+        log('toggle-result', `✓ Strategic locations ${newState ? 'shown' : 'hidden'}`, 'success');
+      } catch (error) {
+        log('toggle-result', `✗ Error: ${error.message}`, 'error');
+      }
+    }
+
+    function toggleIndustrialZones() {
+      clear('toggle-result');
+      if (!renderer) {
+        log('toggle-result', '✗ Please initialize renderer first', 'error');
+        return;
+      }
+
+      try {
+        const currentState = renderer.isIndustrialZonesVisible();
+        renderer.toggleIndustrialZones(!currentState);
+        const newState = renderer.isIndustrialZonesVisible();
+        log('toggle-result', `✓ Industrial zones ${newState ? 'shown' : 'hidden'}`, 'success');
+      } catch (error) {
+        log('toggle-result', `✗ Error: ${error.message}`, 'error');
+      }
+    }
+
+    function testClear() {
+      clear('clear-result');
+      if (!renderer) {
+        log('clear-result', '✗ Please initialize renderer first', 'error');
+        return;
+      }
+
+      try {
+        renderer.clearStrategicLocations();
+        log('clear-result', '✓ All locations cleared', 'success');
+        updateStats();
+      } catch (error) {
+        log('clear-result', `✗ Error: ${error.message}`, 'error');
+      }
+    }
+
+    function testHighlightPoint() {
+      clear('highlight-result');
+      if (!renderer) {
+        log('highlight-result', '✗ Please initialize renderer first', 'error');
+        return;
+      }
+
+      try {
+        const feature = testLocations.points.features[0];
+        const type = locationTypes.find(t => t.id === 'seaport');
+        renderer.highlightLocation(feature, type);
+        log('highlight-result', '✓ Highlighted point location', 'success');
+      } catch (error) {
+        log('highlight-result', `✗ Error: ${error.message}`, 'error');
+      }
+    }
+
+    function testHighlightLine() {
+      clear('highlight-result');
+      if (!renderer) {
+        log('highlight-result', '✗ Please initialize renderer first', 'error');
+        return;
+      }
+
+      try {
+        const feature = testLocations.lines.features[0];
+        const type = locationTypes.find(t => t.id === 'highway');
+        renderer.highlightLocation(feature, type);
+        log('highlight-result', '✓ Highlighted line location', 'success');
+      } catch (error) {
+        log('highlight-result', `✗ Error: ${error.message}`, 'error');
+      }
+    }
+
+    function testHighlightPolygon() {
+      clear('highlight-result');
+      if (!renderer) {
+        log('highlight-result', '✗ Please initialize renderer first', 'error');
+        return;
+      }
+
+      try {
+        const feature = testLocations.polygons.features[0];
+        const type = locationTypes.find(t => t.id === 'residential');
+        renderer.highlightLocation(feature, type);
+        log('highlight-result', '✓ Highlighted polygon location', 'success');
+      } catch (error) {
+        log('highlight-result', `✗ Error: ${error.message}`, 'error');
+      }
+    }
+
+    async function testLoadRealData() {
+      clear('real-data-result');
+      if (!renderer) {
+        log('real-data-result', '✗ Please initialize renderer first', 'error');
+        return;
+      }
+
+      try {
+        log('real-data-result', 'Initializing LocationManager...', 'info');
+        locationManager = new LocationManager();
+        
+        log('real-data-result', 'Loading all location data...', 'info');
+        await locationManager.loadAllLocations();
+        
+        const allLocations = locationManager.getAllLocations();
+        const types = locationManager.getLocationTypes();
+        
+        log('real-data-result', `✓ Loaded ${allLocations.features.length} real locations`, 'success');
+        
+        // Show counts by type
+        types.forEach(type => {
+          const count = locationManager.getCountByType(type.id);
+          log('real-data-result', `  - ${type.name}: ${count}`, 'info');
+        });
+        
+        log('real-data-result', 'Rendering locations on map...', 'info');
+        renderer.renderStrategicLocations(allLocations, types);
+        
+        log('real-data-result', '✓ Real data rendered successfully', 'success');
+        updateStats();
+        
+        // Zoom to Vietnam
+        map.flyTo({
+          center: [106.7, 16.0],
+          zoom: 6,
+          duration: 2000
+        });
+        
+      } catch (error) {
+        log('real-data-result', `✗ Error: ${error.message}`, 'error');
+        console.error(error);
+      }
+    }
+
+    // Auto-initialize on page load
+    window.onload = () => {
+      log('test-log', 'Page loaded, initializing...', 'info');
+      initMap();
+      setTimeout(() => {
+        testInitialize();
+      }, 1000);
+    };
+  </script>
+</body>
+</html>

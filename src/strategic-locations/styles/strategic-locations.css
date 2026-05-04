@@ -1,0 +1,578 @@
+/* ============================================
+   Strategic Locations Display - CSS Styles
+   ============================================ */
+
+/* ============================================
+   Layer Control Panel
+   ============================================ */
+
+.layer-control-panel {
+  padding: 16px;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 8px;
+  margin-bottom: 16px;
+}
+
+.layer-control-panel h4 {
+  margin: 0 0 12px 0;
+  color: #fff;
+  font-size: 14px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.layer-toggle-item {
+  margin-bottom: 12px;
+}
+
+.layer-toggle-item:last-child {
+  margin-bottom: 0;
+}
+
+.layer-toggle-btn {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 6px;
+  color: #fff;
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.layer-toggle-btn:hover {
+  background: rgba(255, 255, 255, 0.15);
+  border-color: rgba(255, 255, 255, 0.3);
+  transform: translateY(-1px);
+}
+
+.layer-toggle-btn:active {
+  transform: translateY(0);
+}
+
+.layer-toggle-btn.active {
+  background: rgba(59, 130, 246, 0.2);
+  border-color: rgba(59, 130, 246, 0.5);
+}
+
+.layer-toggle-btn .left-content {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.layer-toggle-btn .count {
+  color: rgba(255, 255, 255, 0.6);
+  font-size: 12px;
+  margin-left: 4px;
+}
+
+.layer-toggle-btn .status {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.7);
+  padding: 2px 8px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 4px;
+}
+
+.layer-toggle-btn.active .status {
+  color: #10b981;
+  background: rgba(16, 185, 129, 0.2);
+}
+
+/* ============================================
+   Legend
+   ============================================ */
+
+.layer-legend {
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.layer-legend h5 {
+  margin: 0 0 12px 0;
+  color: #fff;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.legend-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 0;
+  color: rgba(255, 255, 255, 0.8);
+  font-size: 13px;
+}
+
+.legend-item svg,
+.legend-item i {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+}
+
+.legend-item:hover {
+  color: #fff;
+}
+
+/* Legend collapsible */
+.layer-legend.collapsed .legend-items {
+  display: none;
+}
+
+.legend-toggle {
+  background: none;
+  border: none;
+  color: #fff;
+  cursor: pointer;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.legend-toggle:hover {
+  color: rgba(255, 255, 255, 0.8);
+}
+
+/* ============================================
+   Strategic Location Markers
+   ============================================ */
+
+/* NO CSS for markers - all styles are inline like industrial zones */
+/* Mapbox Marker API handles all positioning and rendering */
+
+/* Legacy marker-icon class (if still used in old code) */
+.marker-icon {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+  border: 2px solid white;
+}
+
+.marker-icon svg,
+.marker-icon i {
+  width: 16px;
+  height: 16px;
+  color: white;
+}
+
+/* Marker type-specific colors (legacy) */
+.marker-icon.seaport {
+  background-color: #0ea5e9;
+}
+
+.marker-icon.airport {
+  background-color: #8b5cf6;
+}
+
+.marker-icon.highway {
+  background-color: #f59e0b;
+}
+
+.marker-icon.city_center {
+  background-color: #ef4444;
+}
+
+.marker-icon.residential {
+  background-color: #10b981;
+}
+
+/* ============================================
+   Popups
+   ============================================ */
+
+.strategic-location-popup {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+}
+
+.strategic-location-popup .mapboxgl-popup-content {
+  padding: 0;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  min-width: 250px;
+  max-width: 350px;
+}
+
+.popup-header {
+  padding: 12px 16px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border-radius: 8px 8px 0 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.popup-header svg,
+.popup-header i {
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+}
+
+.popup-header-text h3 {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.popup-header-text .location-type {
+  margin: 2px 0 0 0;
+  font-size: 12px;
+  opacity: 0.9;
+}
+
+.popup-content {
+  padding: 16px;
+}
+
+.popup-info-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin-bottom: 10px;
+  font-size: 13px;
+}
+
+.popup-info-row:last-child {
+  margin-bottom: 0;
+}
+
+.popup-info-row svg,
+.popup-info-row i {
+  width: 16px;
+  height: 16px;
+  color: #6b7280;
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.popup-info-row .label {
+  font-weight: 600;
+  color: #374151;
+  min-width: 80px;
+}
+
+.popup-info-row .value {
+  color: #6b7280;
+  flex: 1;
+}
+
+.popup-footer {
+  padding: 12px 16px;
+  background: #f9fafb;
+  border-radius: 0 0 8px 8px;
+  border-top: 1px solid #e5e7eb;
+  display: flex;
+  gap: 8px;
+}
+
+.popup-btn {
+  flex: 1;
+  padding: 8px 12px;
+  background: white;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  color: #374151;
+  font-size: 13px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  transition: all 0.2s ease;
+}
+
+.popup-btn:hover {
+  background: #f3f4f6;
+  border-color: #9ca3af;
+}
+
+.popup-btn svg,
+.popup-btn i {
+  width: 14px;
+  height: 14px;
+}
+
+.popup-btn.primary {
+  background: #3b82f6;
+  border-color: #3b82f6;
+  color: white;
+}
+
+.popup-btn.primary:hover {
+  background: #2563eb;
+  border-color: #2563eb;
+}
+
+/* Popup type-specific header colors */
+.popup-header.seaport {
+  background: linear-gradient(135deg, #0ea5e9 0%, #0284c7 100%);
+}
+
+.popup-header.airport {
+  background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);
+}
+
+.popup-header.highway {
+  background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+}
+
+.popup-header.city_center {
+  background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+}
+
+.popup-header.residential {
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+}
+
+/* ============================================
+   Loading Indicator
+   ============================================ */
+
+.layer-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 13px;
+}
+
+.layer-loading-spinner {
+  width: 16px;
+  height: 16px;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-top-color: #fff;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+  margin-right: 8px;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* ============================================
+   Tooltips
+   ============================================ */
+
+.layer-tooltip {
+  position: absolute;
+  background: rgba(0, 0, 0, 0.9);
+  color: white;
+  padding: 6px 10px;
+  border-radius: 4px;
+  font-size: 12px;
+  pointer-events: none;
+  z-index: 10000;
+  white-space: nowrap;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+.layer-tooltip.visible {
+  opacity: 1;
+}
+
+.layer-tooltip::after {
+  content: '';
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  border: 4px solid transparent;
+  border-top-color: rgba(0, 0, 0, 0.9);
+}
+
+/* ============================================
+   Responsive Design
+   ============================================ */
+
+@media (max-width: 768px) {
+  .layer-control-panel {
+    padding: 12px;
+  }
+
+  .layer-toggle-btn {
+    padding: 10px 12px;
+    font-size: 13px;
+  }
+
+  .marker-icon {
+    width: 28px;
+    height: 28px;
+  }
+
+  .marker-icon svg,
+  .marker-icon i {
+    width: 14px;
+    height: 14px;
+  }
+
+  .strategic-location-popup .mapboxgl-popup-content {
+    min-width: 200px;
+    max-width: 280px;
+  }
+
+  .popup-header {
+    padding: 10px 12px;
+  }
+
+  .popup-header-text h3 {
+    font-size: 14px;
+  }
+
+  .popup-content {
+    padding: 12px;
+  }
+
+  .popup-info-row {
+    font-size: 12px;
+  }
+
+  .popup-footer {
+    padding: 10px 12px;
+  }
+
+  .popup-btn {
+    padding: 6px 10px;
+    font-size: 12px;
+  }
+}
+
+@media (max-width: 480px) {
+  .layer-control-panel {
+    padding: 10px;
+  }
+
+  .layer-toggle-btn {
+    padding: 8px 10px;
+    font-size: 12px;
+  }
+
+  .layer-toggle-btn .count {
+    display: none;
+  }
+
+  .marker-icon {
+    width: 24px;
+    height: 24px;
+    border-width: 1.5px;
+  }
+
+  .marker-icon svg,
+  .marker-icon i {
+    width: 12px;
+    height: 12px;
+  }
+
+  .legend-item {
+    font-size: 12px;
+  }
+
+  .legend-item svg,
+  .legend-item i {
+    width: 16px;
+    height: 16px;
+  }
+}
+
+/* ============================================
+   Accessibility
+   ============================================ */
+
+.layer-toggle-btn:focus,
+.popup-btn:focus {
+  outline: 2px solid #3b82f6;
+  outline-offset: 2px;
+}
+
+.layer-toggle-btn:focus:not(:focus-visible),
+.popup-btn:focus:not(:focus-visible) {
+  outline: none;
+}
+
+/* Screen reader only text */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border-width: 0;
+}
+
+/* ============================================
+   Print Styles
+   ============================================ */
+
+@media print {
+  .layer-control-panel {
+    display: none;
+  }
+
+  .strategic-location-marker {
+    transform: none !important;
+  }
+
+  .marker-icon {
+    box-shadow: none;
+    border-width: 1px;
+  }
+}
+
+/* ============================================
+   Dark Mode Support (if needed)
+   ============================================ */
+
+@media (prefers-color-scheme: dark) {
+  .popup-content {
+    background: #1f2937;
+    color: #f9fafb;
+  }
+
+  .popup-info-row .label {
+    color: #f9fafb;
+  }
+
+  .popup-info-row .value {
+    color: #d1d5db;
+  }
+
+  .popup-footer {
+    background: #111827;
+    border-top-color: #374151;
+  }
+
+  .popup-btn {
+    background: #374151;
+    border-color: #4b5563;
+    color: #f9fafb;
+  }
+
+  .popup-btn:hover {
+    background: #4b5563;
+    border-color: #6b7280;
+  }
+}

@@ -1,0 +1,449 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>LocationManager Test</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      max-width: 1200px;
+      margin: 20px auto;
+      padding: 20px;
+      background: #f5f5f5;
+    }
+    h1 {
+      color: #333;
+    }
+    .test-section {
+      background: white;
+      padding: 20px;
+      margin: 20px 0;
+      border-radius: 8px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    .test-result {
+      margin: 10px 0;
+      padding: 10px;
+      border-radius: 4px;
+    }
+    .success {
+      background: #d4edda;
+      color: #155724;
+      border: 1px solid #c3e6cb;
+    }
+    .error {
+      background: #f8d7da;
+      color: #721c24;
+      border: 1px solid #f5c6cb;
+    }
+    .info {
+      background: #d1ecf1;
+      color: #0c5460;
+      border: 1px solid #bee5eb;
+    }
+    button {
+      background: #007bff;
+      color: white;
+      border: none;
+      padding: 10px 20px;
+      border-radius: 4px;
+      cursor: pointer;
+      margin: 5px;
+    }
+    button:hover {
+      background: #0056b3;
+    }
+    pre {
+      background: #f8f9fa;
+      padding: 10px;
+      border-radius: 4px;
+      overflow-x: auto;
+    }
+    .location-type {
+      display: inline-block;
+      margin: 5px;
+      padding: 5px 10px;
+      border-radius: 4px;
+      font-size: 12px;
+    }
+  </style>
+</head>
+<body>
+  <h1>LocationManager Test Page</h1>
+  
+  <div class="test-section">
+    <h2>1. Initialize LocationManager</h2>
+    <button onclick="testInitialize()">Test Initialize</button>
+    <div id="init-result"></div>
+  </div>
+
+  <div class="test-section">
+    <h2>2. Get Location Types</h2>
+    <button onclick="testGetLocationTypes()">Test Get Location Types</button>
+    <div id="types-result"></div>
+  </div>
+
+  <div class="test-section">
+    <h2>3. Load Single Location Type</h2>
+    <select id="typeSelect">
+      <option value="seaport">Seaport (Cảng biển)</option>
+      <option value="airport">Airport (Sân bay)</option>
+      <option value="highway">Highway (Cao tốc)</option>
+      <option value="city_center">City Center (Trung tâm TP)</option>
+      <option value="residential">Residential (Khu dân cư)</option>
+    </select>
+    <button onclick="testLoadLocationType()">Load Location Type</button>
+    <div id="load-result"></div>
+  </div>
+
+  <div class="test-section">
+    <h2>4. Load All Locations</h2>
+    <button onclick="testLoadAllLocations()">Load All Locations</button>
+    <div id="load-all-result"></div>
+  </div>
+
+  <div class="test-section">
+    <h2>5. Get Locations by Type</h2>
+    <button onclick="testGetLocationsByType()">Get Locations by Type</button>
+    <div id="get-by-type-result"></div>
+  </div>
+
+  <div class="test-section">
+    <h2>6. Get All Locations</h2>
+    <button onclick="testGetAllLocations()">Get All Locations</button>
+    <div id="get-all-result"></div>
+  </div>
+
+  <div class="test-section">
+    <h2>7. Cache Management</h2>
+    <button onclick="testCacheManagement()">Test Cache</button>
+    <div id="cache-result"></div>
+  </div>
+
+  <div class="test-section">
+    <h2>8. Search Locations</h2>
+    <input type="text" id="searchInput" placeholder="Enter search query..." style="padding: 8px; width: 300px; margin-right: 10px;">
+    <button onclick="testSearchLocations()">Search</button>
+    <button onclick="testSearchExamples()">Run Example Searches</button>
+    <div id="search-result"></div>
+  </div>
+
+  <div class="test-section">
+    <h2>9. Error Handling</h2>
+    <button onclick="testErrorHandling()">Test Error Handling</button>
+    <div id="error-result"></div>
+  </div>
+
+  <script src="location-manager.js"></script>
+  <script>
+    let locationManager;
+
+    function log(elementId, message, type = 'info') {
+      const element = document.getElementById(elementId);
+      const div = document.createElement('div');
+      div.className = `test-result ${type}`;
+      div.textContent = message;
+      element.appendChild(div);
+    }
+
+    function logObject(elementId, obj) {
+      const element = document.getElementById(elementId);
+      const pre = document.createElement('pre');
+      pre.textContent = JSON.stringify(obj, null, 2);
+      element.appendChild(pre);
+    }
+
+    function clear(elementId) {
+      document.getElementById(elementId).innerHTML = '';
+    }
+
+    function testInitialize() {
+      clear('init-result');
+      try {
+        locationManager = new LocationManager();
+        log('init-result', '✓ LocationManager initialized successfully', 'success');
+        log('init-result', `Location types configured: ${locationManager.getLocationTypes().length}`, 'info');
+        log('init-result', `Cache size: ${locationManager.locations.size}`, 'info');
+      } catch (error) {
+        log('init-result', `✗ Error: ${error.message}`, 'error');
+      }
+    }
+
+    function testGetLocationTypes() {
+      clear('types-result');
+      if (!locationManager) {
+        log('types-result', '✗ Please initialize LocationManager first', 'error');
+        return;
+      }
+
+      try {
+        const types = locationManager.getLocationTypes();
+        log('types-result', `✓ Retrieved ${types.length} location types`, 'success');
+        
+        types.forEach(type => {
+          const div = document.createElement('div');
+          div.className = 'location-type';
+          div.style.backgroundColor = type.color;
+          div.style.color = 'white';
+          div.textContent = `${type.name} (${type.id})`;
+          document.getElementById('types-result').appendChild(div);
+        });
+
+        logObject('types-result', types);
+      } catch (error) {
+        log('types-result', `✗ Error: ${error.message}`, 'error');
+      }
+    }
+
+    async function testLoadLocationType() {
+      clear('load-result');
+      if (!locationManager) {
+        log('load-result', '✗ Please initialize LocationManager first', 'error');
+        return;
+      }
+
+      const typeId = document.getElementById('typeSelect').value;
+      log('load-result', `Loading location type: ${typeId}...`, 'info');
+
+      try {
+        const data = await locationManager.loadLocationType(typeId);
+        const count = data.features ? data.features.length : 0;
+        log('load-result', `✓ Loaded ${count} features for ${typeId}`, 'success');
+        log('load-result', `Cache size: ${locationManager.locations.size}`, 'info');
+        
+        if (count > 0) {
+          log('load-result', `First feature sample:`, 'info');
+          logObject('load-result', data.features[0]);
+        }
+      } catch (error) {
+        log('load-result', `✗ Error: ${error.message}`, 'error');
+      }
+    }
+
+    async function testLoadAllLocations() {
+      clear('load-all-result');
+      if (!locationManager) {
+        log('load-all-result', '✗ Please initialize LocationManager first', 'error');
+        return;
+      }
+
+      log('load-all-result', 'Loading all location types...', 'info');
+
+      try {
+        await locationManager.loadAllLocations();
+        log('load-all-result', '✓ All locations loaded successfully', 'success');
+        log('load-all-result', `Total features: ${locationManager.getTotalCount()}`, 'info');
+        
+        const types = locationManager.getLocationTypes();
+        types.forEach(type => {
+          const count = locationManager.getCountByType(type.id);
+          log('load-all-result', `${type.name}: ${count} features`, 'info');
+        });
+      } catch (error) {
+        log('load-all-result', `✗ Error: ${error.message}`, 'error');
+      }
+    }
+
+    function testGetLocationsByType() {
+      clear('get-by-type-result');
+      if (!locationManager) {
+        log('get-by-type-result', '✗ Please initialize LocationManager first', 'error');
+        return;
+      }
+
+      const types = locationManager.getLocationTypes();
+      types.forEach(type => {
+        const data = locationManager.getLocationsByType(type.id);
+        const count = data.features ? data.features.length : 0;
+        const status = locationManager.isLoaded(type.id) ? '✓' : '✗';
+        log('get-by-type-result', `${status} ${type.name}: ${count} features`, 
+            locationManager.isLoaded(type.id) ? 'success' : 'info');
+      });
+    }
+
+    function testGetAllLocations() {
+      clear('get-all-result');
+      if (!locationManager) {
+        log('get-all-result', '✗ Please initialize LocationManager first', 'error');
+        return;
+      }
+
+      try {
+        const allLocations = locationManager.getAllLocations();
+        const count = allLocations.features ? allLocations.features.length : 0;
+        log('get-all-result', `✓ Retrieved ${count} total features`, 'success');
+        
+        // Count by type
+        const countByType = {};
+        allLocations.features.forEach(feature => {
+          const type = feature.properties.locationType;
+          countByType[type] = (countByType[type] || 0) + 1;
+        });
+
+        log('get-all-result', 'Features by type:', 'info');
+        Object.entries(countByType).forEach(([type, count]) => {
+          log('get-all-result', `  ${type}: ${count}`, 'info');
+        });
+      } catch (error) {
+        log('get-all-result', `✗ Error: ${error.message}`, 'error');
+      }
+    }
+
+    function testCacheManagement() {
+      clear('cache-result');
+      if (!locationManager) {
+        log('cache-result', '✗ Please initialize LocationManager first', 'error');
+        return;
+      }
+
+      try {
+        log('cache-result', `Initial cache size: ${locationManager.locations.size}`, 'info');
+        log('cache-result', `All loaded: ${locationManager.areAllLoaded()}`, 'info');
+        
+        // Clear specific type
+        if (locationManager.isLoaded('seaport')) {
+          locationManager.clearCacheForType('seaport');
+          log('cache-result', '✓ Cleared seaport cache', 'success');
+          log('cache-result', `Seaport loaded: ${locationManager.isLoaded('seaport')}`, 'info');
+        }
+
+        log('cache-result', `Cache size after clear: ${locationManager.locations.size}`, 'info');
+      } catch (error) {
+        log('cache-result', `✗ Error: ${error.message}`, 'error');
+      }
+    }
+
+    async function testErrorHandling() {
+      clear('error-result');
+      if (!locationManager) {
+        log('error-result', '✗ Please initialize LocationManager first', 'error');
+        return;
+      }
+
+      try {
+        // Test invalid type ID
+        log('error-result', 'Testing invalid type ID...', 'info');
+        const invalidData = await locationManager.loadLocationType('invalid_type');
+        log('error-result', `✓ Handled invalid type gracefully: ${invalidData.features.length} features`, 'success');
+
+        // Test getting unloaded type
+        log('error-result', 'Testing unloaded type access...', 'info');
+        locationManager.clearCache();
+        const unloadedData = locationManager.getLocationsByType('seaport');
+        log('error-result', `✓ Handled unloaded type gracefully: ${unloadedData.features.length} features`, 'success');
+
+      } catch (error) {
+        log('error-result', `✗ Error: ${error.message}`, 'error');
+      }
+    }
+
+    function testSearchLocations() {
+      clear('search-result');
+      if (!locationManager) {
+        log('search-result', '✗ Please initialize LocationManager first', 'error');
+        return;
+      }
+
+      const query = document.getElementById('searchInput').value;
+      if (!query) {
+        log('search-result', '✗ Please enter a search query', 'error');
+        return;
+      }
+
+      try {
+        log('search-result', `Searching for: "${query}"...`, 'info');
+        const results = locationManager.searchLocations(query);
+        
+        if (results.length === 0) {
+          log('search-result', '✓ No results found', 'info');
+          return;
+        }
+
+        log('search-result', `✓ Found ${results.length} results`, 'success');
+        
+        results.forEach((result, index) => {
+          const div = document.createElement('div');
+          div.className = 'test-result info';
+          div.innerHTML = `
+            <strong>${index + 1}. ${result.displayName}</strong><br>
+            Type: <span class="location-type" style="background-color: ${result.locationType.color}; color: white;">
+              ${result.locationType.name}
+            </span><br>
+            Type ID: ${result.typeId}<br>
+            Coordinates: ${result.feature.geometry.coordinates.join(', ')}
+          `;
+          document.getElementById('search-result').appendChild(div);
+        });
+
+        // Show first result details
+        if (results.length > 0) {
+          log('search-result', 'First result details:', 'info');
+          logObject('search-result', results[0]);
+        }
+      } catch (error) {
+        log('search-result', `✗ Error: ${error.message}`, 'error');
+      }
+    }
+
+    async function testSearchExamples() {
+      clear('search-result');
+      if (!locationManager) {
+        log('search-result', '✗ Please initialize LocationManager first', 'error');
+        return;
+      }
+
+      // Ensure data is loaded
+      if (!locationManager.areAllLoaded()) {
+        log('search-result', 'Loading all locations first...', 'info');
+        await locationManager.loadAllLocations();
+      }
+
+      const testQueries = [
+        'Cảng',           // Search for ports
+        'Sân bay',        // Search for airports
+        'Cao tốc',        // Search for highways
+        'Trung tâm',      // Search for city centers
+        'Khu dân cư',     // Search for residential areas
+        'Sài Gòn',        // Search by specific name
+        'airport',        // English search
+        'seaport'         // Search by type ID
+      ];
+
+      log('search-result', 'Running example searches...', 'info');
+
+      testQueries.forEach(query => {
+        const results = locationManager.searchLocations(query);
+        const status = results.length > 0 ? 'success' : 'info';
+        log('search-result', `"${query}": ${results.length} results`, status);
+      });
+
+      // Test edge cases
+      log('search-result', '\nTesting edge cases...', 'info');
+      
+      const emptyResults = locationManager.searchLocations('');
+      log('search-result', `Empty string: ${emptyResults.length} results (expected 0)`, 
+          emptyResults.length === 0 ? 'success' : 'error');
+
+      const nullResults = locationManager.searchLocations(null);
+      log('search-result', `Null query: ${nullResults.length} results (expected 0)`, 
+          nullResults.length === 0 ? 'success' : 'error');
+
+      const whitespaceResults = locationManager.searchLocations('   ');
+      log('search-result', `Whitespace only: ${whitespaceResults.length} results (expected 0)`, 
+          whitespaceResults.length === 0 ? 'success' : 'error');
+
+      const noMatchResults = locationManager.searchLocations('XYZ123NonExistent');
+      log('search-result', `Non-existent: ${noMatchResults.length} results (expected 0)`, 
+          noMatchResults.length === 0 ? 'success' : 'error');
+
+      log('search-result', '\n✓ All example searches completed', 'success');
+    }
+
+    // Auto-initialize on page load
+    window.onload = () => {
+      testInitialize();
+    };
+  </script>
+</body>
+</html>
