@@ -1,0 +1,418 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Test Recommendation Card Component</title>
+  
+  <!-- Mapbox GL JS -->
+  <link href="https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.css" rel="stylesheet">
+  <script src="https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.js"></script>
+  
+  <!-- AI Investment Advisor Styles -->
+  <link rel="stylesheet" href="../styles/ai-investment-advisor.css">
+  
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: #1a1a1a;
+      color: #ffffff;
+    }
+    
+    .container {
+      max-width: 1400px;
+      margin: 0 auto;
+      padding: 40px 20px;
+    }
+    
+    h1 {
+      text-align: center;
+      margin-bottom: 40px;
+      color: #3B82F6;
+    }
+    
+    .test-controls {
+      background: rgba(0, 0, 0, 0.85);
+      padding: 20px;
+      border-radius: 12px;
+      margin-bottom: 30px;
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+    
+    .test-controls button {
+      padding: 10px 20px;
+      background: #3B82F6;
+      color: white;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 14px;
+      font-weight: 600;
+      transition: all 0.15s ease;
+    }
+    
+    .test-controls button:hover {
+      background: #2563EB;
+      transform: translateY(-1px);
+    }
+    
+    .selected-zones {
+      background: rgba(0, 0, 0, 0.85);
+      padding: 20px;
+      border-radius: 12px;
+      margin-bottom: 30px;
+    }
+    
+    .selected-zones h3 {
+      margin: 0 0 12px 0;
+      font-size: 16px;
+      color: #3B82F6;
+    }
+    
+    .selected-zones-list {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+    
+    .selected-zone-tag {
+      padding: 6px 12px;
+      background: rgba(59, 130, 246, 0.2);
+      border: 1px solid #3B82F6;
+      border-radius: 6px;
+      font-size: 13px;
+    }
+    
+    #map {
+      width: 100%;
+      height: 400px;
+      border-radius: 12px;
+      margin-bottom: 30px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>🏭 Recommendation Card Component Test</h1>
+    
+    <div class="test-controls">
+      <button id="btn-load-sample">Load Sample Recommendations</button>
+      <button id="btn-clear">Clear All</button>
+      <button id="btn-select-all">Select All</button>
+      <button id="btn-deselect-all">Deselect All</button>
+    </div>
+    
+    <div class="selected-zones">
+      <h3>Selected Zones for Comparison (<span id="selected-count">0</span>/5)</h3>
+      <div class="selected-zones-list" id="selected-zones-list">
+        <span style="color: rgba(255, 255, 255, 0.6); font-size: 13px;">No zones selected</span>
+      </div>
+    </div>
+    
+    <div id="map"></div>
+    
+    <div class="recommendations-container" id="recommendations-container">
+      <div class="recommendations-empty">
+        <div class="recommendations-empty-icon">📊</div>
+        <p class="recommendations-empty-text">Click "Load Sample Recommendations" to see cards</p>
+      </div>
+    </div>
+  </div>
+  
+  <script type="module">
+    import { RecommendationCard } from './recommendation-card.js';
+    import { Recommendation } from '../models/recommendation.js';
+    
+    // Initialize Mapbox
+    mapboxgl.accessToken = 'pk.eyJ1IjoibWFwYm94IiwiYSI6ImNpejY4NXVycTA2emYycXBndHRqcmZ3N3gifQ.rJcFIG214AriISLbB6B5aw'; // Public token for testing
+    
+    const map = new mapboxgl.Map({
+      container: 'map',
+      style: 'mapbox://styles/mapbox/dark-v11',
+      center: [106.6297, 10.8231], // Ho Chi Minh City
+      zoom: 8
+    });
+    
+    // Track selected zones
+    const selectedZones = new Set();
+    const MAX_SELECTIONS = 5;
+    
+    // Sample recommendation data
+    const sampleRecommendations = [
+      {
+        zone: {
+          type: 'Feature',
+          geometry: {
+            type: 'Point',
+            coordinates: [106.6297, 10.8231]
+          },
+          properties: {
+            name: 'KCN Tân Thuận',
+            code: 'HCMC-TT-001',
+            province: 'TP Hồ Chí Minh',
+            district: 'Quận 7',
+            price: 120,
+            acreage: 350,
+            kind: 'KCN'
+          }
+        },
+        score: 87.5,
+        breakdown: {
+          price: { score: 85, weight: 0.25 },
+          location: { score: 95, weight: 0.25 },
+          infrastructure: { score: 90, weight: 0.25 },
+          logistics: { score: 80, weight: 0.25 }
+        },
+        rank: 1,
+        growthPotential: 78,
+        logisticsCosts: {
+          nearestPort: { name: 'Cảng Sài Gòn', distance: 12.5, cost: 187500 },
+          nearestAirport: { name: 'Sân bay Tân Sơn Nhất', distance: 18.3, cost: 274500 },
+          nearestCity: { name: 'TP Hồ Chí Minh', distance: 8.2, cost: 123000 }
+        }
+      },
+      {
+        zone: {
+          type: 'Feature',
+          geometry: {
+            type: 'Point',
+            coordinates: [106.8, 10.9]
+          },
+          properties: {
+            name: 'KCN Biên Hòa',
+            code: 'DN-BH-002',
+            province: 'Đồng Nai',
+            district: 'Biên Hòa',
+            price: 95,
+            acreage: 520,
+            kind: 'KCN'
+          }
+        },
+        score: 84.2,
+        breakdown: {
+          price: { score: 90, weight: 0.25 },
+          location: { score: 82, weight: 0.25 },
+          infrastructure: { score: 85, weight: 0.25 },
+          logistics: { score: 80, weight: 0.25 }
+        },
+        rank: 2,
+        growthPotential: 72,
+        logisticsCosts: {
+          nearestPort: { name: 'Cảng Cát Lái', distance: 25.4, cost: 381000 },
+          nearestAirport: { name: 'Sân bay Long Thành', distance: 15.8, cost: 237000 },
+          nearestCity: { name: 'Biên Hòa', distance: 5.2, cost: 78000 }
+        }
+      },
+      {
+        zone: {
+          type: 'Feature',
+          geometry: {
+            type: 'Point',
+            coordinates: [105.8, 21.0]
+          },
+          properties: {
+            name: 'KCN Thăng Long',
+            code: 'HN-TL-003',
+            province: 'TP Hà Nội',
+            district: 'Đông Anh',
+            price: 110,
+            acreage: 420,
+            kind: 'KCN'
+          }
+        },
+        score: 81.8,
+        breakdown: {
+          price: { score: 88, weight: 0.25 },
+          location: { score: 85, weight: 0.25 },
+          infrastructure: { score: 78, weight: 0.25 },
+          logistics: { score: 76, weight: 0.25 }
+        },
+        rank: 3,
+        growthPotential: 68,
+        logisticsCosts: {
+          nearestPort: { name: 'Cảng Hải Phòng', distance: 95.2, cost: 1428000 },
+          nearestAirport: { name: 'Sân bay Nội Bài', distance: 22.5, cost: 337500 },
+          nearestCity: { name: 'Hà Nội', distance: 18.7, cost: 280500 }
+        }
+      },
+      {
+        zone: {
+          type: 'Feature',
+          geometry: {
+            type: 'Point',
+            coordinates: [106.7, 10.7]
+          },
+          properties: {
+            name: 'CCN Long An',
+            code: 'LA-LA-004',
+            province: 'Long An',
+            district: 'Bến Lức',
+            price: 75,
+            acreage: 180,
+            kind: 'CCN'
+          }
+        },
+        score: 76.5,
+        breakdown: {
+          price: { score: 95, weight: 0.25 },
+          location: { score: 70, weight: 0.25 },
+          infrastructure: { score: 72, weight: 0.25 },
+          logistics: { score: 69, weight: 0.25 }
+        },
+        rank: 4,
+        growthPotential: 55,
+        logisticsCosts: {
+          nearestPort: { name: 'Cảng Sài Gòn', distance: 42.3, cost: 634500 },
+          nearestAirport: { name: 'Sân bay Tân Sơn Nhất', distance: 38.5, cost: 577500 },
+          nearestCity: { name: 'TP Hồ Chí Minh', distance: 35.2, cost: 528000 }
+        }
+      },
+      {
+        zone: {
+          type: 'Feature',
+          geometry: {
+            type: 'Point',
+            coordinates: [108.2, 16.1]
+          },
+          properties: {
+            name: 'KCN Hòa Khánh',
+            code: 'DN-HK-005',
+            province: 'TP Đà Nẵng',
+            district: 'Liên Chiểu',
+            price: 105,
+            acreage: 290,
+            kind: 'KCN'
+          }
+        },
+        score: 79.3,
+        breakdown: {
+          price: { score: 87, weight: 0.25 },
+          location: { score: 80, weight: 0.25 },
+          infrastructure: { score: 75, weight: 0.25 },
+          logistics: { score: 75, weight: 0.25 }
+        },
+        rank: 5,
+        growthPotential: 65,
+        logisticsCosts: {
+          nearestPort: { name: 'Cảng Tiên Sa', distance: 8.5, cost: 127500 },
+          nearestAirport: { name: 'Sân bay Đà Nẵng', distance: 6.2, cost: 93000 },
+          nearestCity: { name: 'Đà Nẵng', distance: 7.8, cost: 117000 }
+        }
+      }
+    ];
+    
+    // Handle zone selection
+    function handleZoneSelection(recommendation, isSelected) {
+      const zoneId = recommendation.zone.properties.code;
+      
+      if (isSelected) {
+        if (selectedZones.size >= MAX_SELECTIONS) {
+          alert(`Chỉ có thể chọn tối đa ${MAX_SELECTIONS} khu để so sánh!`);
+          // Uncheck the checkbox
+          const card = document.querySelector(`[data-zone-id="${zoneId}"] .select-checkbox`);
+          if (card) card.checked = false;
+          return;
+        }
+        selectedZones.add(zoneId);
+      } else {
+        selectedZones.delete(zoneId);
+      }
+      
+      updateSelectedZonesDisplay();
+    }
+    
+    // Handle card click
+    function handleCardClick(recommendation) {
+      console.log('Card clicked:', recommendation.zone.properties.name);
+      console.log('Zone details:', recommendation);
+    }
+    
+    // Update selected zones display
+    function updateSelectedZonesDisplay() {
+      const countEl = document.getElementById('selected-count');
+      const listEl = document.getElementById('selected-zones-list');
+      
+      countEl.textContent = selectedZones.size;
+      
+      if (selectedZones.size === 0) {
+        listEl.innerHTML = '<span style="color: rgba(255, 255, 255, 0.6); font-size: 13px;">No zones selected</span>';
+      } else {
+        listEl.innerHTML = Array.from(selectedZones)
+          .map(zoneId => `<span class="selected-zone-tag">${zoneId}</span>`)
+          .join('');
+      }
+    }
+    
+    // Load sample recommendations
+    function loadSampleRecommendations() {
+      const container = document.getElementById('recommendations-container');
+      container.innerHTML = '';
+      
+      sampleRecommendations.forEach(data => {
+        const recommendation = Recommendation.fromJSON(data);
+        const card = new RecommendationCard(
+          recommendation,
+          map,
+          handleZoneSelection,
+          handleCardClick
+        );
+        
+        container.appendChild(card.render());
+      });
+    }
+    
+    // Clear all cards
+    function clearAll() {
+      const container = document.getElementById('recommendations-container');
+      container.innerHTML = `
+        <div class="recommendations-empty">
+          <div class="recommendations-empty-icon">📊</div>
+          <p class="recommendations-empty-text">Click "Load Sample Recommendations" to see cards</p>
+        </div>
+      `;
+      selectedZones.clear();
+      updateSelectedZonesDisplay();
+    }
+    
+    // Select all zones
+    function selectAll() {
+      const checkboxes = document.querySelectorAll('.select-checkbox');
+      let count = 0;
+      
+      checkboxes.forEach(checkbox => {
+        if (count < MAX_SELECTIONS && !checkbox.checked) {
+          checkbox.checked = true;
+          checkbox.dispatchEvent(new Event('change', { bubbles: true }));
+          count++;
+        }
+      });
+    }
+    
+    // Deselect all zones
+    function deselectAll() {
+      const checkboxes = document.querySelectorAll('.select-checkbox');
+      checkboxes.forEach(checkbox => {
+        if (checkbox.checked) {
+          checkbox.checked = false;
+          checkbox.dispatchEvent(new Event('change', { bubbles: true }));
+        }
+      });
+    }
+    
+    // Event listeners
+    document.getElementById('btn-load-sample').addEventListener('click', loadSampleRecommendations);
+    document.getElementById('btn-clear').addEventListener('click', clearAll);
+    document.getElementById('btn-select-all').addEventListener('click', selectAll);
+    document.getElementById('btn-deselect-all').addEventListener('click', deselectAll);
+    
+    // Load sample data on page load
+    map.on('load', () => {
+      loadSampleRecommendations();
+    });
+  </script>
+</body>
+</html>

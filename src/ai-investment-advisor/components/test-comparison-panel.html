@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Comparison Panel Test</title>
+  <link rel="stylesheet" href="../styles/ai-investment-advisor.css">
+  <style>
+    body {
+      margin: 0;
+      padding: 20px;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+    }
+    
+    .test-container {
+      max-width: 1200px;
+      margin: 0 auto;
+      background: rgba(255, 255, 255, 0.1);
+      backdrop-filter: blur(10px);
+      border-radius: 12px;
+      padding: 30px;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+    }
+    
+    h1 {
+      color: white;
+      margin: 0 0 10px 0;
+      font-size: 32px;
+    }
+    
+    .subtitle {
+      color: rgba(255, 255, 255, 0.8);
+      margin: 0 0 30px 0;
+      font-size: 16px;
+    }
+    
+    .test-buttons {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+    
+    .test-btn {
+      padding: 12px 24px;
+      background: rgba(59, 130, 246, 0.9);
+      color: white;
+      border: none;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+    }
+    
+    .test-btn:hover {
+      background: rgba(37, 99, 235, 0.9);
+      transform: translateY(-2px);
+      box-shadow: 0 6px 16px rgba(0, 0, 0, 0.3);
+    }
+    
+    .test-btn:active {
+      transform: translateY(0);
+    }
+    
+    .info-box {
+      margin-top: 30px;
+      padding: 20px;
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 8px;
+      color: white;
+    }
+    
+    .info-box h2 {
+      margin: 0 0 12px 0;
+      font-size: 18px;
+    }
+    
+    .info-box ul {
+      margin: 0;
+      padding-left: 20px;
+      line-height: 1.8;
+    }
+    
+    .info-box code {
+      background: rgba(0, 0, 0, 0.3);
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-family: 'Courier New', monospace;
+    }
+  </style>
+</head>
+<body>
+  <div class="test-container">
+    <h1>🔍 Comparison Panel Test</h1>
+    <p class="subtitle">Test the ComparisonPanel component with mock data</p>
+    
+    <div class="test-buttons">
+      <button class="test-btn" onclick="testComparison2Zones()">
+        Compare 2 Zones
+      </button>
+      <button class="test-btn" onclick="testComparison3Zones()">
+        Compare 3 Zones
+      </button>
+      <button class="test-btn" onclick="testComparison5Zones()">
+        Compare 5 Zones (Max)
+      </button>
+      <button class="test-btn" onclick="testComparisonEnglish()">
+        Compare (English)
+      </button>
+    </div>
+    
+    <div class="info-box">
+      <h2>📋 Features Tested</h2>
+      <ul>
+        <li><strong>Side-by-side comparison</strong> of up to 5 zones</li>
+        <li><strong>All criteria scores</strong> with visual bars</li>
+        <li><strong>Logistics costs</strong> (ports, airports, cities)</li>
+        <li><strong>Growth potential</strong> indicators</li>
+        <li><strong>Rental price forecasts</strong> (1-2 years)</li>
+        <li><strong>Best value highlighting</strong> for each criterion</li>
+        <li><strong>Responsive layout</strong> (vertical stack on mobile)</li>
+        <li><strong>CSV export</strong> functionality</li>
+        <li><strong>Vietnamese/English</strong> language support</li>
+      </ul>
+    </div>
+    
+    <div class="info-box">
+      <h2>🎯 Requirements Validated</h2>
+      <ul>
+        <li><code>10.1</code> - Select up to 5 zones for comparison</li>
+        <li><code>10.2</code> - Generate comparison report within 3 seconds</li>
+        <li><code>10.3</code> - Include all criteria scores, logistics, growth, forecasts</li>
+        <li><code>10.4</code> - Highlight best zone for each criterion</li>
+        <li><code>17.2</code> - Stack panels vertically on mobile</li>
+        <li><code>17.6</code> - Scrollable single-column layout on mobile</li>
+      </ul>
+    </div>
+  </div>
+
+  <script type="module">
+    import { ComparisonPanel } from './comparison-panel.js';
+    
+    // Mock recommendation data
+    function createMockRecommendation(id, name, province, price, acreage, scores, rank) {
+      return {
+        zone: {
+          type: 'Feature',
+          properties: {
+            code: `KCN${id}`,
+            name: name,
+            province: province,
+            district: 'Quận ' + (id % 5 + 1),
+            price: price,
+            acreage: acreage,
+            kind: 'KCN'
+          },
+          geometry: {
+            type: 'Point',
+            coordinates: [106.0 + id * 0.1, 10.0 + id * 0.1]
+          }
+        },
+        score: scores.overall,
+        breakdown: {
+          price: { score: scores.price, weight: 0.25 },
+          location: { score: scores.location, weight: 0.25 },
+          infrastructure: { score: scores.infrastructure, weight: 0.25 },
+          logistics: { score: scores.logistics, weight: 0.25 }
+        },
+        rank: rank,
+        explanation: 'Mock explanation for testing',
+        growthPotential: scores.growth,
+        logisticsCosts: {
+          nearestPort: {
+            name: 'Cảng Sài Gòn',
+            distance: 15 + id * 5,
+            cost: (15 + id * 5) * 15000
+          },
+          nearestAirport: {
+            name: 'Sân bay Tân Sơn Nhất',
+            distance: 20 + id * 3,
+            cost: (20 + id * 3) * 15000
+          },
+          nearestCity: {
+            name: 'TP. Hồ Chí Minh',
+            distance: 10 + id * 2,
+            cost: (10 + id * 2) * 15000
+          }
+        }
+      };
+    }
+    
+    // Test with 2 zones
+    window.testComparison2Zones = function() {
+      const recommendations = [
+        createMockRecommendation(1, 'KCN Tân Thuận', 'Hồ Chí Minh', 120, 500, {
+          overall: 85.5, price: 75, location: 90, infrastructure: 88, logistics: 88, growth: 82
+        }, 1),
+        createMockRecommendation(2, 'KCN Biên Hòa 2', 'Đồng Nai', 95, 450, {
+          overall: 82.3, price: 88, location: 78, infrastructure: 82, logistics: 81, growth: 75
+        }, 2)
+      ];
+      
+      const panel = new ComparisonPanel(recommendations, { language: 'vi' });
+      panel.show();
+    };
+    
+    // Test with 3 zones
+    window.testComparison3Zones = function() {
+      const recommendations = [
+        createMockRecommendation(1, 'KCN Tân Thuận', 'Hồ Chí Minh', 120, 500, {
+          overall: 85.5, price: 75, location: 90, infrastructure: 88, logistics: 88, growth: 82
+        }, 1),
+        createMockRecommendation(2, 'KCN Biên Hòa 2', 'Đồng Nai', 95, 450, {
+          overall: 82.3, price: 88, location: 78, infrastructure: 82, logistics: 81, growth: 75
+        }, 2),
+        createMockRecommendation(3, 'KCN Vsip Bắc Ninh', 'Bắc Ninh', 110, 380, {
+          overall: 79.8, price: 80, location: 75, infrastructure: 85, logistics: 79, growth: 88
+        }, 3)
+      ];
+      
+      const panel = new ComparisonPanel(recommendations, { language: 'vi' });
+      panel.show();
+    };
+    
+    // Test with 5 zones (maximum)
+    window.testComparison5Zones = function() {
+      const recommendations = [
+        createMockRecommendation(1, 'KCN Tân Thuận', 'Hồ Chí Minh', 120, 500, {
+          overall: 85.5, price: 75, location: 90, infrastructure: 88, logistics: 88, growth: 82
+        }, 1),
+        createMockRecommendation(2, 'KCN Biên Hòa 2', 'Đồng Nai', 95, 450, {
+          overall: 82.3, price: 88, location: 78, infrastructure: 82, logistics: 81, growth: 75
+        }, 2),
+        createMockRecommendation(3, 'KCN Vsip Bắc Ninh', 'Bắc Ninh', 110, 380, {
+          overall: 79.8, price: 80, location: 75, infrastructure: 85, logistics: 79, growth: 88
+        }, 3),
+        createMockRecommendation(4, 'KCN Thăng Long', 'Hà Nội', 130, 420, {
+          overall: 77.2, price: 68, location: 85, infrastructure: 80, logistics: 76, growth: 70
+        }, 4),
+        createMockRecommendation(5, 'KCN Dung Quất', 'Quảng Ngãi', 85, 600, {
+          overall: 74.5, price: 92, location: 65, infrastructure: 72, logistics: 70, growth: 65
+        }, 5)
+      ];
+      
+      const panel = new ComparisonPanel(recommendations, { language: 'vi' });
+      panel.show();
+    };
+    
+    // Test with English language
+    window.testComparisonEnglish = function() {
+      const recommendations = [
+        createMockRecommendation(1, 'Tan Thuan Industrial Park', 'Ho Chi Minh', 120, 500, {
+          overall: 85.5, price: 75, location: 90, infrastructure: 88, logistics: 88, growth: 82
+        }, 1),
+        createMockRecommendation(2, 'Bien Hoa 2 Industrial Park', 'Dong Nai', 95, 450, {
+          overall: 82.3, price: 88, location: 78, infrastructure: 82, logistics: 81, growth: 75
+        }, 2),
+        createMockRecommendation(3, 'Vsip Bac Ninh Industrial Park', 'Bac Ninh', 110, 380, {
+          overall: 79.8, price: 80, location: 75, infrastructure: 85, logistics: 79, growth: 88
+        }, 3)
+      ];
+      
+      const panel = new ComparisonPanel(recommendations, { language: 'en' });
+      panel.show();
+    };
+  </script>
+</body>
+</html>

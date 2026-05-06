@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Test Explanation Panel</title>
+  <link rel="stylesheet" href="../styles/ai-investment-advisor.css">
+  <style>
+    body {
+      margin: 0;
+      padding: 20px;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: #1a1a1a;
+      color: white;
+    }
+    
+    .test-container {
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+    
+    h1 {
+      margin-bottom: 20px;
+    }
+    
+    .test-buttons {
+      display: flex;
+      gap: 12px;
+      margin-bottom: 20px;
+      flex-wrap: wrap;
+    }
+    
+    .test-btn {
+      padding: 12px 24px;
+      background: #3B82F6;
+      color: white;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 14px;
+      font-weight: 600;
+      transition: background 0.2s;
+    }
+    
+    .test-btn:hover {
+      background: #2563EB;
+    }
+    
+    .info-box {
+      padding: 16px;
+      background: rgba(255, 255, 255, 0.05);
+      border-radius: 8px;
+      margin-bottom: 20px;
+    }
+    
+    .info-box h3 {
+      margin-top: 0;
+      color: #3B82F6;
+    }
+    
+    .info-box ul {
+      margin: 8px 0;
+      padding-left: 20px;
+    }
+    
+    .info-box li {
+      margin: 4px 0;
+    }
+  </style>
+</head>
+<body>
+  <div class="test-container">
+    <h1>🧪 Explanation Panel Component Test</h1>
+    
+    <div class="info-box">
+      <h3>Component Features</h3>
+      <ul>
+        <li>✅ LLM-generated natural language explanation display</li>
+        <li>✅ Criterion contribution percentages with visual bars</li>
+        <li>✅ Negative impact criteria highlighting</li>
+        <li>✅ Province average comparison charts</li>
+        <li>✅ Top 3 strengths and top 3 weaknesses</li>
+        <li>✅ Vietnamese and English language support</li>
+        <li>✅ Mobile-responsive design</li>
+      </ul>
+    </div>
+    
+    <div class="test-buttons">
+      <button class="test-btn" onclick="testHighScoreZone()">
+        Test High Score Zone (85/100)
+      </button>
+      <button class="test-btn" onclick="testMediumScoreZone()">
+        Test Medium Score Zone (62/100)
+      </button>
+      <button class="test-btn" onclick="testLowScoreZone()">
+        Test Low Score Zone (45/100)
+      </button>
+      <button class="test-btn" onclick="testWithProvinceComparison()">
+        Test With Province Comparison
+      </button>
+      <button class="test-btn" onclick="testEnglishLanguage()">
+        Test English Language
+      </button>
+    </div>
+  </div>
+
+  <script type="module">
+    import { ExplanationPanel } from './explanation-panel.js';
+    
+    // Mock recommendation data
+    function createMockRecommendation(scoreConfig) {
+      return {
+        zone: {
+          properties: {
+            name: 'Khu Công Nghiệp Thăng Long',
+            code: 'KCN-TL-001',
+            province: 'TP Hà Nội',
+            district: 'Đông Anh',
+            price: 85,
+            acreage: 150
+          },
+          geometry: {
+            type: 'Point',
+            coordinates: [105.8342, 21.0278]
+          }
+        },
+        score: scoreConfig.total,
+        breakdown: {
+          price: { score: scoreConfig.price, weight: 0.25 },
+          location: { score: scoreConfig.location, weight: 0.30 },
+          infrastructure: { score: scoreConfig.infrastructure, weight: 0.25 },
+          logistics: { score: scoreConfig.logistics, weight: 0.20 },
+          totalScore: scoreConfig.total,
+          industryType: 'manufacturing'
+        },
+        rank: 1,
+        growthPotential: scoreConfig.growth || 75,
+        logisticsCosts: {
+          nearestPort: { name: 'Cảng Hải Phòng', distance: 120, cost: 1800000 },
+          nearestAirport: { name: 'Sân bay Nội Bài', distance: 25, cost: 375000 },
+          nearestCity: { name: 'Trung tâm Hà Nội', distance: 18, cost: 270000 }
+        }
+      };
+    }
+    
+    // Test cases
+    window.testHighScoreZone = function() {
+      const recommendation = createMockRecommendation({
+        total: 85,
+        price: 88,
+        location: 92,
+        infrastructure: 78,
+        logistics: 82,
+        growth: 85
+      });
+      
+      const explanation = `Khu công nghiệp Thăng Long đạt điểm 85/100, là một lựa chọn xuất sắc cho ngành sản xuất chế tạo. 
+      Điểm mạnh nổi bật là vị trí thuận lợi tại Hà Nội với điểm 92/100 và giá thuê cạnh tranh 85 USD/m². 
+      Hạ tầng hoàn chỉnh với diện tích 150 ha và khoảng cách logistics hợp lý (25 km đến sân bay Nội Bài). 
+      Khu vực này rất phù hợp cho các doanh nghiệp sản xuất cần tiếp cận thị trường miền Bắc.`;
+      
+      const panel = new ExplanationPanel(recommendation, explanation, {
+        language: 'vi'
+      });
+      
+      panel.show();
+    };
+    
+    window.testMediumScoreZone = function() {
+      const recommendation = createMockRecommendation({
+        total: 62,
+        price: 55,
+        location: 68,
+        infrastructure: 72,
+        logistics: 52,
+        growth: 58
+      });
+      
+      const explanation = `Khu công nghiệp Thăng Long đạt điểm 62/100, là lựa chọn phù hợp với một số hạn chế. 
+      Điểm mạnh là hạ tầng tốt (72/100) và vị trí khá thuận lợi (68/100). 
+      Tuy nhiên, giá thuê cao hơn trung bình (55/100) và khoảng cách logistics xa (52/100) có thể ảnh hưởng đến chi phí vận hành. 
+      Cần cân nhắc kỹ về chi phí tổng thể trước khi quyết định đầu tư.`;
+      
+      const panel = new ExplanationPanel(recommendation, explanation, {
+        language: 'vi'
+      });
+      
+      panel.show();
+    };
+    
+    window.testLowScoreZone = function() {
+      const recommendation = createMockRecommendation({
+        total: 45,
+        price: 38,
+        location: 42,
+        infrastructure: 55,
+        logistics: 45,
+        growth: 40
+      });
+      
+      const explanation = `Khu công nghiệp Thăng Long đạt điểm 45/100, cần xem xét kỹ lưỡng trước khi đầu tư. 
+      Giá thuê cao (38/100) và vị trí xa trung tâm (42/100) là hai điểm yếu chính. 
+      Mặc dù hạ tầng ở mức chấp nhận được (55/100), chi phí logistics cao có thể làm tăng đáng kể chi phí vận hành. 
+      Khu vực này chỉ phù hợp nếu có yêu cầu đặc biệt về không gian hoặc ngành nghề cụ thể.`;
+      
+      const panel = new ExplanationPanel(recommendation, explanation, {
+        language: 'vi'
+      });
+      
+      panel.show();
+    };
+    
+    window.testWithProvinceComparison = function() {
+      const recommendation = createMockRecommendation({
+        total: 78,
+        price: 82,
+        location: 85,
+        infrastructure: 70,
+        logistics: 75,
+        growth: 80
+      });
+      
+      const explanation = `Khu công nghiệp Thăng Long vượt trội so với trung bình tỉnh Hà Nội với điểm 78/100. 
+      Đặc biệt xuất sắc về vị trí (85/100, cao hơn 25% so với TB tỉnh) và giá thuê cạnh tranh (82/100, thấp hơn 15% so với TB tỉnh). 
+      Hạ tầng và logistics đều ở mức tốt, phù hợp cho các doanh nghiệp muốn tận dụng lợi thế của thủ đô. 
+      Đây là một trong những lựa chọn hàng đầu tại khu vực miền Bắc.`;
+      
+      const provinceAverage = {
+        price: 65,
+        location: 68,
+        infrastructure: 72,
+        logistics: 70
+      };
+      
+      const panel = new ExplanationPanel(recommendation, explanation, {
+        language: 'vi',
+        provinceAverage: provinceAverage
+      });
+      
+      panel.show();
+    };
+    
+    window.testEnglishLanguage = function() {
+      const recommendation = createMockRecommendation({
+        total: 85,
+        price: 88,
+        location: 92,
+        infrastructure: 78,
+        logistics: 82,
+        growth: 85
+      });
+      
+      const explanation = `Thang Long Industrial Zone scores 85/100, making it an excellent choice for manufacturing. 
+      Key strengths include favorable location in Hanoi (92/100) and competitive rental price of 85 USD/m². 
+      Complete infrastructure with 150 ha area and reasonable logistics distance (25 km to Noi Bai Airport). 
+      This zone is highly suitable for manufacturing businesses targeting the Northern market.`;
+      
+      const panel = new ExplanationPanel(recommendation, explanation, {
+        language: 'en'
+      });
+      
+      panel.show();
+    };
+    
+    console.log('✅ Explanation Panel test page loaded');
+    console.log('Click the buttons above to test different scenarios');
+  </script>
+</body>
+</html>

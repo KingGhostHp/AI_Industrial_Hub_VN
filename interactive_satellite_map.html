@@ -10,6 +10,7 @@
   <link href="./src/routing/styles/routing.css?v=2" rel="stylesheet"/>
   <link href="./src/strategic-locations/styles/strategic-locations.css" rel="stylesheet"/>
   <link href="./src/nearest-locations/styles/nearest-locations.css" rel="stylesheet"/>
+  <link href="./src/ai-investment-advisor/styles/ai-investment-advisor.css" rel="stylesheet"/>
   <script src="https://unpkg.com/lucide@latest"></script>
   <style>
     html, body { height: 100%; margin: 0; font-family: 'Segoe UI', sans-serif; }
@@ -340,6 +341,25 @@
       ">
         <i data-lucide="layers" style="width: 16px; height: 16px;"></i>
         Lớp bản đồ
+      </button>
+      <button class="sidebar-tab" data-tab="aiAdvisor" style="
+        flex: 1;
+        padding: 12px;
+        border: none;
+        background: none;
+        color: rgba(255, 255, 255, 0.6);
+        cursor: pointer;
+        font-size: 13px;
+        font-weight: 600;
+        border-bottom: 2px solid transparent;
+        transition: all 0.2s;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 6px;
+      ">
+        <i data-lucide="brain-circuit" style="width: 16px; height: 16px;"></i>
+        AI Tư vấn
       </button>
     </div>
 
@@ -714,6 +734,11 @@
             Xuất GeoJSON (Mapbox Draw)
           </button>
         </div>
+      </div>
+
+      <!-- AI Advisor Tab -->
+      <div id="aiAdvisorTab" class="tab-content" style="display: none;">
+        <div id="aiAdvisorContainer"></div>
       </div>
     </div>
   </div>
@@ -2460,6 +2485,11 @@
             if (nearestLocationsOrchestrator) {
               nearestLocationsOrchestrator.handleIndustrialZoneClick(feature);
             }
+
+            // Trigger AI Explanation Panel if initialized
+            if (window.aiAdvisorModule && window.aiAdvisorModule.components.explanationPanel) {
+              window.aiAdvisorModule.components.explanationPanel.analyzeIndustrialZone(feature);
+            }
           });
 
           // Right-click event for routing context menu
@@ -3554,6 +3584,7 @@ function handleGeocoderResult(result) {
         initializeRoutingSystem();
         initializeStrategicLocations();
         initializeGPS(); // Initialize GPS functionality
+        initializeAIAdvisor(); // Initialize AI Investment Advisor
       }, 1000);
     });
 
@@ -4409,6 +4440,81 @@ function initializeGPS() {
   }
   
   console.log('✅ GPS/Geolocation initialized');
+}
+
+// ============================================
+// AI INVESTMENT ADVISOR INTEGRATION
+// ============================================
+
+let aiAdvisorModule = null;
+
+/**
+ * Initialize AI Investment Advisor module
+ */
+async function initializeAIAdvisor() {
+  try {
+    console.log('🧠 Initializing AI Investment Advisor...');
+    
+    // Import modules
+    const { DataManager } = await import('./src/ai-investment-advisor/services/data-manager.js');
+    const { PredictionEngine } = await import('./src/ai-investment-advisor/services/prediction-engine.js');
+    const { ExportGenerator } = await import('./src/ai-investment-advisor/services/export-generator.js');
+    const { ExplanationPanel } = await import('./src/ai-investment-advisor/components/explanation-panel.js');
+    const { AnalyticsDashboard } = await import('./src/ai-investment-advisor/components/analytics-dashboard.js');
+    const { HeatmapController } = await import('./src/ai-investment-advisor/components/heatmap-controller.js');
+    
+    // Initialize services
+    const dataManager = new DataManager();
+    const predictionEngine = new PredictionEngine(dataManager);
+    const exportGenerator = new ExportGenerator(dataManager);
+    const heatmapController = new HeatmapController(map);
+    
+    // Initialize UI components
+    const analyticsDashboard = new AnalyticsDashboard('aiAdvisorContainer', {
+      dataManager,
+      predictionEngine,
+      heatmapController,
+      exportGenerator
+    });
+    
+    // Add activation listener for AI Advisor tab
+    const aiAdvisorTabBtn = document.querySelector('[data-tab="aiAdvisor"]');
+    if (aiAdvisorTabBtn) {
+      aiAdvisorTabBtn.addEventListener('click', () => {
+        analyticsDashboard.show();
+      });
+    }
+    
+    // Add explanation panel to map
+    const explanationPanelContainer = document.createElement('div');
+    explanationPanelContainer.id = 'ai-explanation-panel-container';
+    document.body.appendChild(explanationPanelContainer);
+    
+    const explanationPanel = new ExplanationPanel('ai-explanation-panel-container', {
+      dataManager,
+      predictionEngine
+    });
+    
+    // Store module globally
+    aiAdvisorModule = {
+      services: { dataManager, predictionEngine, exportGenerator, heatmapController },
+      components: { analyticsDashboard, explanationPanel }
+    };
+    
+    // Connect to industrial zone clicks
+    const originalMarkerClickHandler = (feature) => {
+      if (explanationPanel) {
+        explanationPanel.analyzeIndustrialZone(feature);
+      }
+    };
+    
+    // Note: We'll need to hook into the existing marker click logic
+    // which is already done in addIndustrialLayer where nearestLocationsOrchestrator is called
+    
+    console.log('✅ AI Investment Advisor initialized');
+  } catch (error) {
+    console.error('❌ Failed to initialize AI Investment Advisor:', error);
+  }
 }
 
 

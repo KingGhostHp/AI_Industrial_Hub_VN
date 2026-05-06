@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Test Questionnaire Panel</title>
+  <link rel="stylesheet" href="../styles/ai-investment-advisor.css">
+  <style>
+    body {
+      margin: 0;
+      padding: 20px;
+      background: #1a1a1a;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      color: #fff;
+    }
+    
+    .test-container {
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 20px;
+    }
+    
+    h1 {
+      margin-bottom: 20px;
+    }
+    
+    .test-button {
+      padding: 12px 24px;
+      background: #3B82F6;
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+    
+    .test-button:hover {
+      background: #2563EB;
+      transform: translateY(-1px);
+    }
+    
+    .result-box {
+      margin-top: 20px;
+      padding: 16px;
+      background: rgba(255, 255, 255, 0.05);
+      border-radius: 8px;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+    
+    .result-box h3 {
+      margin-top: 0;
+    }
+    
+    .result-box pre {
+      background: rgba(0, 0, 0, 0.3);
+      padding: 12px;
+      border-radius: 4px;
+      overflow-x: auto;
+      font-size: 12px;
+    }
+  </style>
+</head>
+<body>
+  <div class="test-container">
+    <h1>Questionnaire Panel Test</h1>
+    <p>Click the button below to open the questionnaire panel.</p>
+    
+    <button class="test-button" id="open-questionnaire">
+      Open Questionnaire
+    </button>
+    
+    <div class="result-box" id="result-box" style="display: none;">
+      <h3>Submitted Preferences:</h3>
+      <pre id="result-content"></pre>
+    </div>
+  </div>
+  
+  <script type="module">
+    import { QuestionnairePanel } from './questionnaire-panel.js';
+    
+    const openButton = document.getElementById('open-questionnaire');
+    const resultBox = document.getElementById('result-box');
+    const resultContent = document.getElementById('result-content');
+    
+    openButton.addEventListener('click', () => {
+      const panel = new QuestionnairePanel((preferences) => {
+        // Display submitted preferences
+        resultBox.style.display = 'block';
+        resultContent.textContent = JSON.stringify(preferences.toJSON(), null, 2);
+        
+        console.log('Questionnaire completed:', preferences);
+      });
+      
+      panel.show();
+    });
+  </script>
+</body>
+</html>

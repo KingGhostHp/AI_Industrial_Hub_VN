@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>DataManager Test</title>
+  <style>
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 20px;
+      background: #f5f5f5;
+    }
+    .container {
+      background: white;
+      padding: 30px;
+      border-radius: 8px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    h1 {
+      color: #333;
+      border-bottom: 3px solid #4CAF50;
+      padding-bottom: 10px;
+    }
+    .test-section {
+      margin: 20px 0;
+      padding: 15px;
+      background: #f9f9f9;
+      border-left: 4px solid #2196F3;
+      border-radius: 4px;
+    }
+    .test-section h3 {
+      margin-top: 0;
+      color: #2196F3;
+    }
+    button {
+      background: #4CAF50;
+      color: white;
+      border: none;
+      padding: 12px 24px;
+      font-size: 16px;
+      border-radius: 4px;
+      cursor: pointer;
+      margin: 10px 5px;
+    }
+    button:hover {
+      background: #45a049;
+    }
+    button:disabled {
+      background: #ccc;
+      cursor: not-allowed;
+    }
+    #output {
+      background: #1e1e1e;
+      color: #d4d4d4;
+      padding: 20px;
+      border-radius: 4px;
+      font-family: 'Courier New', monospace;
+      font-size: 14px;
+      line-height: 1.6;
+      max-height: 500px;
+      overflow-y: auto;
+      white-space: pre-wrap;
+      word-wrap: break-word;
+    }
+    .success {
+      color: #4CAF50;
+    }
+    .error {
+      color: #f44336;
+    }
+    .info {
+      color: #2196F3;
+    }
+    .warning {
+      color: #ff9800;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>🧪 DataManager Service Test</h1>
+    
+    <div class="test-section">
+      <h3>Test Controls</h3>
+      <button id="runTests" onclick="runAllTests()">Run All Tests</button>
+      <button id="clearOutput" onclick="clearOutput()">Clear Output</button>
+      <button id="testZones" onclick="testZoneData()">Test Zone Data</button>
+      <button id="testLocations" onclick="testStrategicLocations()">Test Strategic Locations</button>
+      <button id="testPrefs" onclick="testPreferences()">Test Preferences</button>
+    </div>
+    
+    <div class="test-section">
+      <h3>Test Output</h3>
+      <div id="output">Ready to run tests...</div>
+    </div>
+  </div>
+
+  <script type="module">
+    import DataManager from './src/ai-investment-advisor/services/data-manager.js';
+    
+    let dm = null;
+    let output = document.getElementById('output');
+    
+    function log(message, type = 'info') {
+      const timestamp = new Date().toLocaleTimeString();
+      const className = type;
+      const line = `<span class="${className}">[${timestamp}] ${message}</span>\n`;
+      output.innerHTML += line;
+      output.scrollTop = output.scrollHeight;
+    }
+    
+    function clearOutput() {
+      output.innerHTML = '';
+      log('Output cleared', 'info');
+    }
+    
+    async function initDataManager() {
+      if (!dm) {
+        log('Creating DataManager instance...', 'info');
+        dm = new DataManager();
+        await dm.initialize();
+        log('✓ DataManager initialized', 'success');
+      }
+      return dm;
+    }
+    
+    async function testZoneData() {
+      try {
+        log('=== Testing Zone Data ===', 'info');
+        const manager = await initDataManager();
+        
+        log('Loading zone data...', 'info');
+        const zones = await manager.loadZoneData();
+        log(`✓ Loaded ${zones.features.length} zones`, 'success');
+        
+        // Test getting zones by province
+        const hanoiZones = manager.getZonesByProvince('Hà Nội');
+        log(`✓ Found ${hanoiZones.length} zones in Hà Nội`, 'success');
+        
+        // Test getting zone by code
+        if (zones.features.length > 0) {
+          const firstZone = zones.features[0];
+          const code = firstZone.properties.code;
+          const foundZone = manager.getZoneByCode(code);
+          log(`✓ Found zone by code: ${foundZone.properties.name}`, 'success');
+        }
+        
+        log('Zone data tests completed!', 'success');
+      } catch (error) {
+        log(`✗ Zone data test failed: ${error.message}`, 'error');
+        console.error(error);
+      }
+    }
+    
+    async function testStrategicLocations() {
+      try {
+        log('=== Testing Strategic Locations ===', 'info');
+        const manager = await initDataManager();
+        
+        // Test seaports
+        log('Loading seaports...', 'info');
+        const seaports = await manager.loadStrategicLocations('seaport');
+        log(`✓ Loaded ${seaports.features.length} seaports`, 'success');
+        
+        // Test airports
+        log('Loading airports...', 'info');
+        const airports = await manager.loadStrategicLocations('airport');
+        log(`✓ Loaded ${airports.features.length} airports`, 'success');
+        
+        // Test city centers
+        log('Loading city centers...', 'info');
+        const cityCenters = await manager.loadStrategicLocations('city_center');
+        log(`✓ Loaded ${cityCenters.features.length} city centers`, 'success');
+        
+        // Test loading all at once
+        log('Loading all strategic locations...', 'info');
+        await manager.loadAllStrategicLocations();
+        log('✓ All strategic locations loaded', 'success');
+        
+        log('Strategic locations tests completed!', 'success');
+      } catch (error) {
+        log(`✗ Strategic locations test failed: ${error.message}`, 'error');
+        console.error(error);
+      }
+    }
+    
+    async function testPreferences() {
+      try {
+        log('=== Testing User Preferences ===', 'info');
+        const manager = await initDataManager();
+        
+        // Load preferences
+        const prefs = manager.getUserPreferences();
+        log(`✓ Loaded preferences: industry=${prefs.industryProfile}, language=${prefs.language}`, 'success');
+        
+        // Modify and save
+        prefs.industryProfile = 'technology';
+        prefs.budgetRange = { min: 100, max: 500 };
+        manager.saveUserPreferences(prefs);
+        log('✓ Preferences saved', 'success');
+        
+        // Reload and verify
+        const reloadedPrefs = manager.loadUserPreferences();
+        if (reloadedPrefs.industryProfile === 'technology') {
+          log('✓ Preferences persisted correctly', 'success');
+        } else {
+          log('✗ Preferences did not persist', 'error');
+        }
+        
+        log('Preferences tests completed!', 'success');
+      } catch (error) {
+        log(`✗ Preferences test failed: ${error.message}`, 'error');
+        console.error(error);
+      }
+    }
+    
+    async function runAllTests() {
+      clearOutput();
+      log('=== Running All DataManager Tests ===', 'info');
+      log('', 'info');
+      
+      try {
+        await testZoneData();
+        log('', 'info');
+        
+        await testStrategicLocations();
+        log('', 'info');
+        
+        await testPreferences();
+        log('', 'info');
+        
+        // Test update status
+        log('=== Testing Update Status ===', 'info');
+        const status = dm.getUpdateStatus();
+        log(`Zones last update: ${status.zones.lastUpdate ? new Date(status.zones.lastUpdate).toLocaleString() : 'Never'}`, 'info');
+        log(`Strategic locations last update: ${status.strategicLocations.lastUpdate ? new Date(status.strategicLocations.lastUpdate).toLocaleString() : 'Never'}`, 'info');
+        log('', 'info');
+        
+        // Test logs
+        log('=== Testing Operation Logs ===', 'info');
+        const logs = dm.getLogs(5);
+        log(`Retrieved ${logs.length} recent log entries`, 'success');
+        logs.forEach(entry => {
+          log(`  [${entry.level}] ${entry.message}`, 'info');
+        });
+        
+        log('', 'info');
+        log('=== ALL TESTS COMPLETED SUCCESSFULLY! ===', 'success');
+        
+      } catch (error) {
+        log('', 'info');
+        log('=== TESTS FAILED ===', 'error');
+        log(`Error: ${error.message}`, 'error');
+        console.error(error);
+      }
+    }
+    
+    // Make functions available globally
+    window.runAllTests = runAllTests;
+    window.clearOutput = clearOutput;
+    window.testZoneData = testZoneData;
+    window.testStrategicLocations = testStrategicLocations;
+    window.testPreferences = testPreferences;
+    
+    log('DataManager test page loaded. Click "Run All Tests" to begin.', 'success');
+  </script>
+</body>
+</html>
