@@ -572,3 +572,67 @@ MIT License - Xem file LICENSE để biết thêm chi tiết.
 - 📍 GPS/Geolocation - Xác định vị trí người dùng
 - 🎯 Tìm KCN/CCN gần tôi - Tìm kiếm dựa trên vị trí hiện tại
 - 🗺️ Tích hợp routing với GPS - Dùng vị trí hiện tại làm điểm xuất phát
+
+---
+
+## 🤖 AI Investment Advisor (v3.0)
+
+Hệ thống hỗ trợ tư vấn đầu tư thông minh tích hợp AI, giúp nhà đầu tư tìm kiếm vị trí tối ưu dựa trên hồ sơ rủi ro, ngân sách và yêu cầu hạ tầng.
+
+### 🧩 Kiến trúc hệ thống
+
+```mermaid
+graph TD
+    A[Questionnaire Panel] -->|Input| B[UserPreferences]
+    B -->|Configuration| C[PredictionEngine]
+    C -->|Forecasts| D[AnalyticsDashboard]
+    D -->|Context| E[ExplanationPanel]
+    E -->|Explain| F[LLMAPIService]
+    
+    subgraph Data Layer
+        G[DataManager]
+        H[GeoJSON Data]
+        I[IIP API Updates]
+        J[Statistics.json]
+    end
+    
+    G --> H
+    G --> I
+    G --> J
+    G -.-> B
+    G -.-> C
+    G -.-> D
+```
+
+### 🌟 Tính năng AI nổi bật
+
+1.  **Dự báo xu hướng (Prediction Engine)**: 
+    *   Sử dụng các phương pháp thống kê (Linear Regression, Moving Average) để dự báo giá thuê và tốc độ lấp đầy trong 12-24 tháng tới.
+    *   Tính toán chỉ số tiềm năng tăng trưởng (Growth Potential Score) dựa trên 15+ tham số.
+2.  **Dashboard Phân tích (Analytics Dashboard)**:
+    *   Trực quan hóa dữ liệu thời gian thực cho từng khu vực.
+    *   So sánh đa tiêu chí giữa các tỉnh thành và khu công nghiệp.
+3.  **Giải thích bằng AI (Explanation Panel)**:
+    *   Tích hợp LLM (Gemini/GPT) để giải thích các quyết định của hệ thống bằng ngôn ngữ tự nhiên.
+    *   Hỗ trợ đa ngôn ngữ (Tiếng Việt/Tiếng Anh).
+4.  **Cá nhân hóa (User Profiles)**:
+    *   Lưu trữ nhiều hồ sơ đầu tư khác nhau (Sản xuất, Logistics, Công nghệ cao).
+    *   Tự động gợi ý dựa trên lịch sử tìm kiếm.
+
+### 🛠️ Cài đặt Module AI
+
+Module AI yêu cầu cấu hình API Key cho LLM trong file `.env`:
+
+```bash
+LLM_API_KEY=your_api_key_here
+LLM_PROVIDER=google # hoặc openai
+```
+
+Chạy script cập nhật dữ liệu hàng tháng:
+```bash
+python scripts/update_industrial_stats.py
+```
+
+**Phiên bản**: 3.0  
+**Cập nhật**: 2026-05-06  
+**Status**: 🚀 AI Integration Live

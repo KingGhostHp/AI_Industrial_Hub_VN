@@ -64,6 +64,20 @@ export class HeatmapController {
   renderHeatmap(metric, opacity = 0.7) {
     if (!this.map || !this.map.isStyleLoaded()) return;
     
+    // Debounce to prevent rapid re-renders
+    if (this._renderTimeout) clearTimeout(this._renderTimeout);
+    this._renderTimeout = setTimeout(() => {
+      requestAnimationFrame(() => {
+        this._executeRenderHeatmap(metric, opacity);
+      });
+    }, 50);
+  }
+
+  /**
+   * Actual rendering logic
+   * @private
+   */
+  _executeRenderHeatmap(metric, opacity) {
     this.activeMetric = metric;
     this.opacity = opacity;
     this.isVisible = true;
@@ -71,9 +85,6 @@ export class HeatmapController {
     // Remove existing heatmap layers if any
     this._removeLayers();
 
-    // Mapbox property name based on metric
-    // In a real implementation, these would be properties in the GeoJSON
-    // For now, we use existing province classification or mock properties
     const propertyName = this._getMetricPropertyName(metric);
 
     // Add fill layer
@@ -90,7 +101,7 @@ export class HeatmapController {
         ],
         'fill-opacity': opacity
       }
-    }, 'vn-provinces-outline'); // Insert below province outlines
+    }, 'vn-provinces-outline');
 
     // Add outline layer for clarity
     this.map.addLayer({
@@ -167,5 +178,17 @@ export class HeatmapController {
   renderLegend() {
     // Implementation for legend UI
     // Similar to existing createProvinceLegend but for heatmap
+  }
+
+  /**
+   * Cleanup and remove all layers
+   */
+  destroy() {
+    if (this._renderTimeout) {
+      clearTimeout(this._renderTimeout);
+      this._renderTimeout = null;
+    }
+    this._removeLayers();
+    this.map = null;
   }
 }

@@ -21,13 +21,10 @@ export { default as LLMAPIService } from './services/llm-api-service.js';
 export { default as LogisticsCalculator } from './services/logistics-calculator.js';
 export { default as DataManager, dataManager } from './services/data-manager.js';
 
-// Components will be exported as they are implemented
-// export { QuestionnairePanel } from './components/questionnaire-panel.js';
-// export { RecommendationCard } from './components/recommendation-card.js';
-// export { ComparisonPanel } from './components/comparison-panel.js';
-// export { AnalyticsDashboard } from './components/analytics-dashboard.js';
-// export { HeatmapController } from './components/heatmap-controller.js';
-// export { ExplanationPanel } from './components/explanation-panel.js';
+// Components
+export { AnalyticsDashboard } from './components/analytics-dashboard.js';
+export { HeatmapController } from './components/heatmap-controller.js';
+export { ExplanationPanel } from './components/explanation-panel.js';
 
 /**
  * Initialize the AI Investment Advisor module

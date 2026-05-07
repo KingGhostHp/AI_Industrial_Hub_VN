@@ -12,6 +12,13 @@
   <link href="./src/nearest-locations/styles/nearest-locations.css" rel="stylesheet"/>
   <link href="./src/ai-investment-advisor/styles/ai-investment-advisor.css" rel="stylesheet"/>
   <script src="https://unpkg.com/lucide@latest"></script>
+  <script type="importmap">
+  {
+    "imports": {
+      "jspdf": "https://esm.sh/jspdf@2.5.1"
+    }
+  }
+  </script>
   <style>
     html, body { height: 100%; margin: 0; font-family: 'Segoe UI', sans-serif; }
     #map { position: absolute; top: 0; bottom: 0; width: 100%; }
@@ -4391,6 +4398,7 @@ function initializeGPS() {
             
             gpsBtn.classList.remove('loading');
             gpsBtn.classList.add('active');
+
             
             showUserLocation(longitude, latitude, accuracy);
             
@@ -4458,7 +4466,7 @@ async function initializeAIAdvisor() {
     // Import modules
     const { DataManager } = await import('./src/ai-investment-advisor/services/data-manager.js');
     const { PredictionEngine } = await import('./src/ai-investment-advisor/services/prediction-engine.js');
-    const { ExportGenerator } = await import('./src/ai-investment-advisor/services/export-generator.js');
+    const { ExportGenerator } = await import('./src/ai-investment-advisor/utils/export-generator.js');
     const { ExplanationPanel } = await import('./src/ai-investment-advisor/components/explanation-panel.js');
     const { AnalyticsDashboard } = await import('./src/ai-investment-advisor/components/analytics-dashboard.js');
     const { HeatmapController } = await import('./src/ai-investment-advisor/components/heatmap-controller.js');
@@ -4469,6 +4477,10 @@ async function initializeAIAdvisor() {
     const exportGenerator = new ExportGenerator(dataManager);
     const heatmapController = new HeatmapController(map);
     
+    // Load initial data
+    await dataManager.loadZoneData();
+    await dataManager.loadAllStrategicLocations();
+    
     // Initialize UI components
     const analyticsDashboard = new AnalyticsDashboard('aiAdvisorContainer', {
       dataManager,
@@ -4477,15 +4489,176 @@ async function initializeAIAdvisor() {
       exportGenerator
     });
     
+    const { QuestionnairePanel } = await import('./src/ai-investment-advisor/components/questionnaire-panel.js');
+    
+    // Helper: show AI Advisor welcome screen
+    function showAIAdvisorWelcome() {
+      const container = document.getElementById('aiAdvisorContainer');
+      if (!container) return;
+      container.innerHTML = `
+        <div style="padding: 40px; text-align: center; color: #fff;">
+          <div style="font-size: 48px; margin-bottom: 16px;">🤖</div>
+          <h3 style="margin-bottom: 12px; font-size: 18px;">Chào mừng đến với Tư vấn đầu tư AI</h3>
+          <p style="margin-bottom: 28px; opacity: 0.75; font-size: 13px; line-height: 1.6;">
+            Hệ thống sẽ phân tích và xếp hạng <strong>1000+ KCN/CCN</strong> trên toàn quốc<br>
+            dựa trên 8 tiêu chí đầu tư do bạn tùy chỉnh.
+          </p>
+          <button id="start-ai-advisor" style="display:block; width:100%; padding:14px 24px; font-size:15px; font-weight:700; background:linear-gradient(135deg,#3B82F6,#6366F1); border:none; border-radius:10px; color:#fff; cursor:pointer; margin-bottom:10px; transition:opacity 0.2s;"
+                  onmouseover="this.style.opacity='0.85'" onmouseout="this.style.opacity='1'">
+            🚀 Bắt đầu tư vấn (8 câu hỏi)
+          </button>
+          <button id="view-analytics-direct" style="display:block; width:100%; padding:10px 20px; font-size:13px; background:rgba(255,255,255,0.08); border:1px solid rgba(255,255,255,0.2); border-radius:10px; color:#fff; cursor:pointer; transition:background 0.2s;"
+                  onmouseover="this.style.background='rgba(255,255,255,0.14)'" onmouseout="this.style.background='rgba(255,255,255,0.08)'">
+            📊 Xem thống kê tổng quan
+          </button>
+        </div>
+      `;
+
+      document.getElementById('start-ai-advisor').addEventListener('click', () => {
+        const questionnaire = new QuestionnairePanel(async (preferences) => {
+          // Show loading state
+          container.innerHTML = `
+            <div style="padding: 40px; text-align: center; color: #fff;">
+              <div style="font-size: 40px; margin-bottom: 20px; animation: spin 1s linear infinite;">⚙️</div>
+              <h3 style="margin-bottom: 10px;">Đang phân tích dữ liệu...</h3>
+              <p style="opacity: 0.7; font-size:13px;">Hệ thống AI đang xếp hạng KCN/CCN theo tiêu chí của bạn</p>
+            </div>
+          `;
+
+          try {
+            const { MultiCriteriaAnalyzer } = await import('./src/ai-investment-advisor/services/multi-criteria-analyzer.js');
+            const { IndustryProfile } = await import('./src/ai-investment-advisor/models/industry-profile.js');
+
+            const criteria = {
+              weights: preferences.criteriaWeights,
+              budgetRange: preferences.budgetRange,
+              preferredProvinces: preferences.preferredProvinces,
+              requiredInfrastructure: preferences.requiredInfrastructure
+            };
+
+            const industryProfile = await IndustryProfile.getProfile(preferences.industryProfile);
+            const zonesData = await dataManager.loadZoneData();
+            let zones = zonesData.features || [];
+
+            // Filter by province if specified
+            if (preferences.preferredProvinces && preferences.preferredProvinces.length > 0) {
+              zones = zones.filter(z => {
+                const province = z.properties.province || z.properties.tinh || '';
+                return preferences.preferredProvinces.some(p => province.includes(p) || p.includes(province));
+              });
+            }
+
+            const analyzer = new MultiCriteriaAnalyzer({
+              strategicLocations: {
+                ports: (dataManager.strategicLocations.get('seaport')?.features || []),
+                airports: (dataManager.strategicLocations.get('airport')?.features || []),
+                cityCenters: (dataManager.strategicLocations.get('city_center')?.features || [])
+              }
+            });
+            const ranked = analyzer.rankZones(zones, criteria, industryProfile);
+            const top20 = analyzer.getTopRecommendations(ranked, 20);
+
+            const industryLabels = {
+              manufacturing: 'Sản xuất chế tạo', logistics: 'Logistics', technology: 'Công nghệ',
+              food_processing: 'Chế biến thực phẩm', textiles: 'Dệt may', electronics: 'Điện tử'
+            };
+
+            container.innerHTML = `
+              <div style="padding: 16px; color: #fff; overflow-y: auto; max-height: calc(100vh - 120px);">
+                <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:14px; flex-wrap:wrap; gap:8px;">
+                  <h3 style="margin:0; font-size:15px;">🏆 Top ${top20.length} KCN phù hợp nhất</h3>
+                  <div style="display:flex; gap:6px;">
+                    <button id="ai-rerun-btn" style="padding:5px 10px; background:rgba(99,102,241,0.3); border:1px solid rgba(99,102,241,0.5); color:#fff; border-radius:6px; cursor:pointer; font-size:11px;">🔄 Thay đổi tiêu chí</button>
+                    <button id="ai-dashboard-btn" style="padding:5px 10px; background:rgba(255,255,255,0.08); border:1px solid rgba(255,255,255,0.2); color:#fff; border-radius:6px; cursor:pointer; font-size:11px;">📊 Thống kê</button>
+                  </div>
+                </div>
+                <div style="background:rgba(99,102,241,0.15); border:1px solid rgba(99,102,241,0.3); border-radius:8px; padding:10px 14px; margin-bottom:14px; font-size:11px; opacity:0.85;">
+                  🏭 ${industryLabels[preferences.industryProfile] || preferences.industryProfile} &nbsp;|&nbsp;
+                  💰 ${preferences.budgetRange.min}–${preferences.budgetRange.max} USD/m² &nbsp;|&nbsp;
+                  📊 Phân tích ${zones.length} KCN/CCN
+                </div>
+                ${top20.length === 0 ? `
+                  <div style="text-align:center; padding:40px; opacity:0.6;">
+                    <div style="font-size:40px; margin-bottom:12px;">😔</div>
+                    <p>Không tìm thấy KCN phù hợp.<br>Hãy điều chỉnh ngân sách hoặc tỉnh thành.</p>
+                  </div>
+                ` : top20.map((item, idx) => {
+                  const props = item.zone.properties;
+                  const score = Math.round(item.score);
+                  const scoreColor = score >= 70 ? '#10B981' : score >= 50 ? '#F59E0B' : '#EF4444';
+                  const bd = item.breakdown;
+                  return `
+                    <div style="background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.1); border-radius:10px; padding:12px 14px; margin-bottom:8px;"
+                         onmouseover="this.style.background='rgba(255,255,255,0.11)'" 
+                         onmouseout="this.style.background='rgba(255,255,255,0.06)'">
+                      <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:8px;">
+                        <div style="flex:1; min-width:0;">
+                          <div style="font-size:13px; font-weight:700; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">
+                            <span style="color:${scoreColor}; margin-right:5px;">#${idx + 1}</span>${props.name || 'Không rõ tên'}
+                          </div>
+                          <div style="font-size:11px; opacity:0.6; margin-top:3px;">
+                            📍 ${props.province || props.tinh || 'N/A'}${props.acreage ? ` · 📏 ${props.acreage} ha` : ''}${props.price ? ` · 💰 ${props.price}` : ''}
+                          </div>
+                        </div>
+                        <div style="text-align:center; min-width:50px; margin-left:10px;">
+                          <div style="font-size:22px; font-weight:800; color:${scoreColor}; line-height:1;">${score}</div>
+                          <div style="font-size:9px; opacity:0.5;">/100</div>
+                        </div>
+                      </div>
+                      <div style="display:grid; grid-template-columns:repeat(4,1fr); gap:4px;">
+                        ${[
+                          ['💰', 'Giá', Math.round(bd.price?.score || 0)],
+                          ['📍', 'Vị trí', Math.round(bd.location?.score || 0)],
+                          ['🏗️', 'Hạ tầng', Math.round(bd.infrastructure?.score || 0)],
+                          ['🚛', 'Logistics', Math.round(bd.logistics?.score || 0)]
+                        ].map(([icon, label, val]) => `
+                          <div style="background:rgba(0,0,0,0.25); border-radius:6px; padding:5px; text-align:center;">
+                            <div style="font-size:9px; opacity:0.6;">${icon} ${label}</div>
+                            <div style="font-size:13px; font-weight:700;">${val}</div>
+                          </div>
+                        `).join('')}
+                      </div>
+                    </div>
+                  `;
+                }).join('')}
+              </div>
+            `;
+
+            document.getElementById('ai-rerun-btn')?.addEventListener('click', showAIAdvisorWelcome);
+            document.getElementById('ai-dashboard-btn')?.addEventListener('click', () => analyticsDashboard.show());
+
+          } catch (err) {
+            console.error('AI Analysis failed:', err);
+            container.innerHTML = `
+              <div style="padding: 40px; text-align: center; color: #fff;">
+                <div style="font-size: 40px; margin-bottom: 16px;">❌</div>
+                <h3>Lỗi phân tích</h3>
+                <p style="opacity:0.7; font-size:13px;">${err.message}</p>
+                <button onclick="showAIAdvisorWelcome()" 
+                        style="margin-top:16px; padding:8px 16px; background:rgba(59,130,246,0.4); border:1px solid rgba(59,130,246,0.6); color:#fff; border-radius:6px; cursor:pointer;">
+                  Thử lại
+                </button>
+              </div>
+            `;
+          }
+        });
+        questionnaire.show();
+      });
+
+      document.getElementById('view-analytics-direct')?.addEventListener('click', () => analyticsDashboard.show());
+    }
+
     // Add activation listener for AI Advisor tab
     const aiAdvisorTabBtn = document.querySelector('[data-tab="aiAdvisor"]');
     if (aiAdvisorTabBtn) {
       aiAdvisorTabBtn.addEventListener('click', () => {
-        analyticsDashboard.show();
+        const container = document.getElementById('aiAdvisorContainer');
+        if (container && container.innerHTML.trim() === '') {
+          showAIAdvisorWelcome();
+        }
       });
     }
-    
-    // Add explanation panel to map
+
     const explanationPanelContainer = document.createElement('div');
     explanationPanelContainer.id = 'ai-explanation-panel-container';
     document.body.appendChild(explanationPanelContainer);

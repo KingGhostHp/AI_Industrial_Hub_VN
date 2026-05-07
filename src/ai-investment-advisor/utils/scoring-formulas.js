@@ -14,12 +14,8 @@
  * 
  * @param {Object} weights - Object with weight values { price, location, infrastructure, logistics }
  * @returns {Object} - Normalized weights that sum to 1.0
- * 
- * @example
- * normalizeWeights({ price: 0.5, location: 0.5, infrastructure: 0.5, logistics: 0.5 })
- * // Returns: { price: 0.25, location: 0.25, infrastructure: 0.25, logistics: 0.25 }
  */
-function normalizeWeights(weights) {
+export function normalizeWeights(weights) {
   if (!weights || typeof weights !== 'object') {
     throw new Error('Weights must be an object');
   }
@@ -59,15 +55,8 @@ function normalizeWeights(weights) {
 /**
  * Calculate price score (0-100)
  * Lower prices get higher scores
- * 
- * Formula: priceScore = 100 × (1 - (price - minPrice) / (maxPrice - minPrice))
- * 
- * @param {number} price - Zone rental price
- * @param {number} minPrice - Minimum price in dataset
- * @param {number} maxPrice - Maximum price in dataset
- * @returns {number} - Price score in range [0, 100]
  */
-function calculatePriceScore(price, minPrice, maxPrice) {
+export function calculatePriceScore(price, minPrice, maxPrice) {
   // Validate inputs
   if (typeof price !== 'number' || price < 0) {
     return 0;
@@ -89,15 +78,8 @@ function calculatePriceScore(price, minPrice, maxPrice) {
 
 /**
  * Calculate location score (0-100)
- * Based on province development level
- * 
- * Formula: locationScore = provinceDevLevel × 100 / 3
- * where provinceDevLevel: 1=low, 2=medium, 3=high
- * 
- * @param {number} provinceDevLevel - Province development level (1, 2, or 3)
- * @returns {number} - Location score in range [0, 100]
  */
-function calculateLocationScore(provinceDevLevel) {
+export function calculateLocationScore(provinceDevLevel) {
   // Validate input
   if (typeof provinceDevLevel !== 'number' || provinceDevLevel < 1 || provinceDevLevel > 3) {
     return 50; // Default middle score for invalid input
@@ -106,21 +88,14 @@ function calculateLocationScore(provinceDevLevel) {
   // Calculate score
   const score = (provinceDevLevel * 100) / 3;
 
-  // Clamp to [0, 100] range (should already be in range, but safety check)
+  // Clamp to [0, 100] range
   return Math.max(0, Math.min(100, score));
 }
 
 /**
  * Calculate infrastructure score (0-100)
- * Weighted combination of acreage score and proximity score
- * 
- * Formula: infrastructureScore = acreageScore × 0.6 + proximityScore × 0.4
- * 
- * @param {number} acreageScore - Score based on zone acreage (0-100)
- * @param {number} proximityScore - Score based on proximity to infrastructure (0-100)
- * @returns {number} - Infrastructure score in range [0, 100]
  */
-function calculateInfrastructureScore(acreageScore, proximityScore) {
+export function calculateInfrastructureScore(acreageScore, proximityScore) {
   // Validate inputs
   if (typeof acreageScore !== 'number' || acreageScore < 0 || acreageScore > 100) {
     acreageScore = 50; // Default middle score
@@ -138,14 +113,8 @@ function calculateInfrastructureScore(acreageScore, proximityScore) {
 
 /**
  * Calculate acreage score (0-100)
- * Larger acreage gets higher score
- * 
- * @param {number} acreage - Zone acreage in hectares
- * @param {number} minAcreage - Minimum acreage in dataset
- * @param {number} maxAcreage - Maximum acreage in dataset
- * @returns {number} - Acreage score in range [0, 100]
  */
-function calculateAcreageScore(acreage, minAcreage, maxAcreage) {
+export function calculateAcreageScore(acreage, minAcreage, maxAcreage) {
   // Validate inputs
   if (typeof acreage !== 'number' || acreage < 0) {
     return 0;
@@ -167,14 +136,8 @@ function calculateAcreageScore(acreage, minAcreage, maxAcreage) {
 
 /**
  * Calculate proximity score (0-100)
- * Based on average distance to strategic locations
- * Shorter distances get higher scores
- * 
- * @param {number} avgDistance - Average distance to strategic locations (km)
- * @param {number} maxDistance - Maximum distance in dataset (km)
- * @returns {number} - Proximity score in range [0, 100]
  */
-function calculateProximityScore(avgDistance, maxDistance) {
+export function calculateProximityScore(avgDistance, maxDistance) {
   // Validate inputs
   if (typeof avgDistance !== 'number' || avgDistance < 0) {
     return 0;
@@ -193,15 +156,8 @@ function calculateProximityScore(avgDistance, maxDistance) {
 
 /**
  * Calculate logistics score (0-100)
- * Based on average distance to strategic locations (ports, airports, city centers)
- * 
- * Formula: logisticsScore = 100 × (1 - avgDistance / maxDistance)
- * 
- * @param {number} avgDistance - Average distance to strategic locations (km)
- * @param {number} maxDistance - Maximum distance in dataset (km)
- * @returns {number} - Logistics score in range [0, 100]
  */
-function calculateLogisticsScore(avgDistance, maxDistance) {
+export function calculateLogisticsScore(avgDistance, maxDistance) {
   // Validate inputs
   if (typeof avgDistance !== 'number' || avgDistance < 0) {
     return 0;
@@ -220,23 +176,8 @@ function calculateLogisticsScore(avgDistance, maxDistance) {
 
 /**
  * Calculate weighted recommendation score
- * Combines all criterion scores using normalized weights
- * 
- * Formula: score = (w1 × priceScore) + (w2 × locationScore) + 
- *                  (w3 × infrastructureScore) + (w4 × logisticsScore)
- * 
- * @param {Object} scores - Individual criterion scores { price, location, infrastructure, logistics }
- * @param {Object} weights - Criterion weights (will be normalized)
- * @returns {number} - Weighted recommendation score in range [0, 100]
- * 
- * @example
- * calculateWeightedScore(
- *   { price: 80, location: 60, infrastructure: 70, logistics: 90 },
- *   { price: 0.25, location: 0.25, infrastructure: 0.25, logistics: 0.25 }
- * )
- * // Returns: 75
  */
-function calculateWeightedScore(scores, weights) {
+export function calculateWeightedScore(scores, weights) {
   // Validate scores
   if (!scores || typeof scores !== 'object') {
     throw new Error('Scores must be an object');
@@ -263,20 +204,14 @@ function calculateWeightedScore(scores, weights) {
     scores.infrastructure * normalizedWeights.infrastructure +
     scores.logistics * normalizedWeights.logistics;
 
-  // Clamp to [0, 100] range (should already be in range, but safety check)
+  // Clamp to [0, 100] range
   return Math.max(0, Math.min(100, weightedScore));
 }
 
 /**
  * Safe division with default value
- * Prevents division by zero errors
- * 
- * @param {number} numerator - Numerator
- * @param {number} denominator - Denominator
- * @param {number} defaultValue - Value to return if denominator is zero (default: 0)
- * @returns {number} - Result of division or default value
  */
-function safeDivide(numerator, denominator, defaultValue = 0) {
+export function safeDivide(numerator, denominator, defaultValue = 0) {
   if (typeof numerator !== 'number' || typeof denominator !== 'number') {
     return defaultValue;
   }
@@ -288,29 +223,11 @@ function safeDivide(numerator, denominator, defaultValue = 0) {
 
 /**
  * Clamp value to range [min, max]
- * 
- * @param {number} value - Value to clamp
- * @param {number} min - Minimum value
- * @param {number} max - Maximum value
- * @returns {number} - Clamped value
  */
-function clamp(value, min, max) {
+export function clamp(value, min, max) {
   if (typeof value !== 'number') {
     return min;
   }
   return Math.max(min, Math.min(max, value));
 }
 
-// CommonJS exports
-module.exports = {
-  normalizeWeights,
-  calculatePriceScore,
-  calculateLocationScore,
-  calculateInfrastructureScore,
-  calculateAcreageScore,
-  calculateProximityScore,
-  calculateLogisticsScore,
-  calculateWeightedScore,
-  safeDivide,
-  clamp
-};

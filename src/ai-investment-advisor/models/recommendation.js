@@ -4,7 +4,7 @@
  * Represents an investment recommendation for an industrial zone.
  * Contains zone data, scoring information, and logistics details.
  */
-class Recommendation {
+export class Recommendation {
   /**
    * Create a new Recommendation
    * @param {Object} zone - GeoJSON feature representing the zone
@@ -65,7 +65,3 @@ class Recommendation {
   }
 }
 
-// CommonJS export for compatibility
-if (typeof module !== 'undefined' && module.exports) {
-  module.exports = { Recommendation };
-}

@@ -7,8 +7,8 @@
  * Requirements: 1.1, 1.3, 1.4, 1.5, 4.6
  */
 
-const { Recommendation } = require('../models/recommendation.js');
-const {
+import { Recommendation } from '../models/recommendation.js';
+import {
   normalizeWeights,
   calculatePriceScore,
   calculateLocationScore,
@@ -17,13 +17,13 @@ const {
   calculateProximityScore,
   calculateLogisticsScore,
   calculateWeightedScore
-} = require('../utils/scoring-formulas.js');
+} from '../utils/scoring-formulas.js';
 
 /**
  * Multi-Criteria Analyzer
  * Evaluates zones based on price, location, infrastructure, and logistics
  */
-class MultiCriteriaAnalyzer {
+export class MultiCriteriaAnalyzer {
   /**
    * Create a new MultiCriteriaAnalyzer
    * @param {Object} options - Configuration options
@@ -42,11 +42,9 @@ class MultiCriteriaAnalyzer {
   /**
    * Default distance calculator using Haversine formula
    * @private
-   * @param {Array} coord1 - [lng, lat]
-   * @param {Array} coord2 - [lng, lat]
-   * @returns {number} Distance in kilometers
    */
   _defaultDistanceCalculator(coord1, coord2) {
+    if (!coord1 || !coord2) return Infinity;
     const [lng1, lat1] = coord1;
     const [lng2, lat2] = coord2;
     
@@ -54,7 +52,7 @@ class MultiCriteriaAnalyzer {
     const φ1 = (lat1 * Math.PI) / 180;
     const φ2 = (lat2 * Math.PI) / 180;
     const Δφ = ((lat2 - lat1) * Math.PI) / 180;
-    const Δλ = ((lon2 - lon1) * Math.PI) / 180;
+    const Δλ = ((lng2 - lng1) * Math.PI) / 180;
 
     const a = Math.sin(Δφ / 2) * Math.sin(Δφ / 2) +
               Math.cos(φ1) * Math.cos(φ2) * Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
@@ -65,22 +63,6 @@ class MultiCriteriaAnalyzer {
 
   /**
    * Calculate recommendation score for a zone
-   * 
-   * @param {Object} zone - Zone GeoJSON feature
-   * @param {Object} criteria - User criteria and weights
-   * @param {Object} criteria.weights - Criteria weights { price, location, infrastructure, logistics }
-   * @param {Object} criteria.budgetRange - Budget range { min, max }
-   * @param {Array} criteria.preferredProvinces - Optional list of preferred provinces
-   * @param {Object} industryProfile - Industry-specific configuration
-   * @param {Object} datasetBounds - Dataset min/max values for normalization
-   * @param {Object} datasetBounds.price - { min, max }
-   * @param {Object} datasetBounds.acreage - { min, max }
-   * @param {Object} datasetBounds.distance - { max }
-   * @returns {Object} - { score, breakdown, rank }
-   * 
-   * @example
-   * const result = analyzer.calculateScore(zone, criteria, industryProfile, datasetBounds);
-   * // Returns: { score: 75.5, breakdown: { price: {...}, location: {...}, ... }, rank: 0 }
    */
   calculateScore(zone, criteria, industryProfile, datasetBounds) {
     try {
@@ -107,7 +89,7 @@ class MultiCriteriaAnalyzer {
       // Calculate individual criterion scores
       const scores = {};
 
-      // 1. Price Score (Requirement 1.1)
+      // 1. Price Score
       const price = this._parsePrice(props.price);
       scores.price = calculatePriceScore(
         price,
@@ -115,11 +97,11 @@ class MultiCriteriaAnalyzer {
         datasetBounds.price?.max || 1000
       );
 
-      // 2. Location Score (Requirement 1.1)
+      // 2. Location Score
       const provinceDevLevel = this._getProvinceDevLevel(props.province);
       scores.location = calculateLocationScore(provinceDevLevel);
 
-      // 3. Infrastructure Score (Requirement 1.1)
+      // 3. Infrastructure Score
       const acreage = parseFloat(props.acreage) || 0;
       const acreageScore = calculateAcreageScore(
         acreage,
@@ -139,7 +121,7 @@ class MultiCriteriaAnalyzer {
 
       scores.infrastructure = calculateInfrastructureScore(acreageScore, proximityScore);
 
-      // 4. Logistics Score (Requirement 1.1)
+      // 4. Logistics Score
       let logisticsScore = 50; // Default middle score
       if (coords && Array.isArray(coords) && coords.length === 2) {
         const avgDistance = this._calculateAverageDistance(coords);
@@ -150,7 +132,7 @@ class MultiCriteriaAnalyzer {
       }
       scores.logistics = logisticsScore;
 
-      // Calculate weighted score (Requirement 1.3)
+      // Calculate weighted score
       const totalScore = calculateWeightedScore(scores, weights);
 
       // Normalize weights for breakdown
@@ -167,12 +149,11 @@ class MultiCriteriaAnalyzer {
       return {
         score: totalScore,
         breakdown: breakdown,
-        rank: 0 // Will be set during ranking
+        rank: 0
       };
 
     } catch (error) {
       console.error('[MultiCriteriaAnalyzer] Error calculating score:', error);
-      // Return default score on error
       return {
         score: 0,
         breakdown: {
@@ -188,15 +169,6 @@ class MultiCriteriaAnalyzer {
 
   /**
    * Rank all zones by recommendation score
-   * 
-   * @param {Array} zones - Array of zone GeoJSON features
-   * @param {Object} criteria - User criteria
-   * @param {Object} industryProfile - Industry-specific configuration
-   * @returns {Array} - Sorted array of { zone, score, breakdown }
-   * 
-   * @example
-   * const ranked = analyzer.rankZones(zones, criteria, industryProfile);
-   * // Returns: [{ zone: {...}, score: 85, breakdown: {...} }, ...]
    */
   rankZones(zones, criteria, industryProfile) {
     try {
@@ -221,14 +193,13 @@ class MultiCriteriaAnalyzer {
         };
       });
 
-      // Sort by score descending (Requirement 1.4)
+      // Sort by score descending
       scoredZones.sort((a, b) => {
-        // Primary sort: by score (descending)
-        if (Math.abs(a.score - b.score) > 0.001) { // Use small epsilon for floating point comparison
+        if (Math.abs(a.score - b.score) > 0.001) {
           return b.score - a.score;
         }
 
-        // Tiebreaker: by distance to nearest strategic location (ascending) (Requirement 1.5)
+        // Tiebreaker: by distance to nearest strategic location (ascending)
         const distanceA = this._getMinDistanceToStrategicLocation(a.zone);
         const distanceB = this._getMinDistanceToStrategicLocation(b.zone);
         return distanceA - distanceB;
@@ -249,31 +220,19 @@ class MultiCriteriaAnalyzer {
 
   /**
    * Get top N recommendations
-   * 
-   * @param {Array} rankedZones - Sorted zones from rankZones()
-   * @param {Number} limit - Number of results (default 20)
-   * @param {Number} minScore - Optional minimum score threshold (Requirement 4.6)
-   * @returns {Array} - Top N zones
-   * 
-   * @example
-   * const top20 = analyzer.getTopRecommendations(rankedZones, 20);
-   * const topFiltered = analyzer.getTopRecommendations(rankedZones, 20, 70);
    */
   getTopRecommendations(rankedZones, limit = 20, minScore = null) {
     try {
-      // Validate inputs
       if (!Array.isArray(rankedZones)) {
         throw new Error('rankedZones must be an array');
       }
 
       let filtered = rankedZones;
 
-      // Apply threshold filtering if minScore provided (Requirement 4.6)
       if (minScore !== null && typeof minScore === 'number') {
         filtered = rankedZones.filter(item => item.score >= minScore);
       }
 
-      // Return top N results
       return filtered.slice(0, limit);
 
     } catch (error) {
@@ -285,8 +244,6 @@ class MultiCriteriaAnalyzer {
   /**
    * Calculate dataset bounds for normalization
    * @private
-   * @param {Array} zones - Array of zone features
-   * @returns {Object} - { price: { min, max }, acreage: { min, max }, distance: { max } }
    */
   _calculateDatasetBounds(zones) {
     const bounds = {
@@ -320,7 +277,6 @@ class MultiCriteriaAnalyzer {
       }
     });
 
-    // Handle edge cases where no valid data found
     if (bounds.price.min === Infinity) {
       bounds.price.min = 0;
       bounds.price.max = 1000;
@@ -339,15 +295,12 @@ class MultiCriteriaAnalyzer {
   /**
    * Parse price from string or number
    * @private
-   * @param {string|number} price - Price value
-   * @returns {number} - Parsed price
    */
   _parsePrice(price) {
     if (typeof price === 'number') {
       return price;
     }
     if (typeof price === 'string') {
-      // Remove non-numeric characters except decimal point
       const cleaned = price.replace(/[^\d.]/g, '');
       const parsed = parseFloat(cleaned);
       return isNaN(parsed) ? 0 : parsed;
@@ -358,16 +311,9 @@ class MultiCriteriaAnalyzer {
   /**
    * Get province development level
    * @private
-   * @param {string} province - Province name
-   * @returns {number} - Development level (1=low, 2=medium, 3=high)
    */
   _getProvinceDevLevel(province) {
-    // High development provinces (major cities)
-    const highDev = [
-      'Hà Nội', 'Thành phố Hồ Chí Minh', 'Đà Nẵng', 'Hải Phòng', 'Cần Thơ'
-    ];
-
-    // Medium development provinces (industrial hubs)
+    const highDev = ['Hà Nội', 'Thành phố Hồ Chí Minh', 'Đà Nẵng', 'Hải Phòng', 'Cần Thơ'];
     const mediumDev = [
       'Bình Dương', 'Đồng Nai', 'Bà Rịa - Vũng Tàu', 'Hải Dương', 'Hưng Yên',
       'Bắc Ninh', 'Vĩnh Phúc', 'Quảng Ninh', 'Thanh Hóa', 'Nghệ An',
@@ -376,127 +322,62 @@ class MultiCriteriaAnalyzer {
       'Vĩnh Long', 'An Giang', 'Kiên Giang'
     ];
 
-    if (highDev.includes(province)) {
-      return 3;
-    } else if (mediumDev.includes(province)) {
-      return 2;
-    } else {
-      return 1;
-    }
+    if (highDev.includes(province)) return 3;
+    if (mediumDev.includes(province)) return 2;
+    return 1;
   }
 
   /**
    * Calculate average distance to strategic locations
    * @private
-   * @param {Array} coords - Zone coordinates [lng, lat]
-   * @returns {number} - Average distance in km
    */
   _calculateAverageDistance(coords) {
     const distances = [];
 
-    // Calculate distance to nearest port
-    if (this.strategicLocations.ports && this.strategicLocations.ports.length > 0) {
-      const portDistances = this.strategicLocations.ports.map(port => {
-        const portCoords = port.geometry?.coordinates || port.coordinates;
-        if (portCoords && Array.isArray(portCoords) && portCoords.length === 2) {
-          try {
-            return this.distanceCalculator(coords, portCoords);
-          } catch (error) {
-            return Infinity;
+    const locationTypes = ['ports', 'airports', 'cityCenters'];
+    locationTypes.forEach(type => {
+      if (this.strategicLocations[type] && this.strategicLocations[type].length > 0) {
+        const typeDistances = this.strategicLocations[type].map(loc => {
+          const locCoords = loc.geometry?.coordinates || loc.coordinates;
+          if (locCoords && Array.isArray(locCoords) && locCoords.length === 2) {
+            return this.distanceCalculator(coords, locCoords);
           }
-        }
-        return Infinity;
-      });
-      const minPortDistance = Math.min(...portDistances);
-      if (isFinite(minPortDistance)) {
-        distances.push(minPortDistance);
+          return Infinity;
+        });
+        const minDist = Math.min(...typeDistances);
+        if (isFinite(minDist)) distances.push(minDist);
       }
-    }
+    });
 
-    // Calculate distance to nearest airport
-    if (this.strategicLocations.airports && this.strategicLocations.airports.length > 0) {
-      const airportDistances = this.strategicLocations.airports.map(airport => {
-        const airportCoords = airport.geometry?.coordinates || airport.coordinates;
-        if (airportCoords && Array.isArray(airportCoords) && airportCoords.length === 2) {
-          try {
-            return this.distanceCalculator(coords, airportCoords);
-          } catch (error) {
-            return Infinity;
-          }
-        }
-        return Infinity;
-      });
-      const minAirportDistance = Math.min(...airportDistances);
-      if (isFinite(minAirportDistance)) {
-        distances.push(minAirportDistance);
-      }
-    }
-
-    // Calculate distance to nearest city center
-    if (this.strategicLocations.cityCenters && this.strategicLocations.cityCenters.length > 0) {
-      const cityDistances = this.strategicLocations.cityCenters.map(city => {
-        const cityCoords = city.geometry?.coordinates || city.coordinates;
-        if (cityCoords && Array.isArray(cityCoords) && cityCoords.length === 2) {
-          try {
-            return this.distanceCalculator(coords, cityCoords);
-          } catch (error) {
-            return Infinity;
-          }
-        }
-        return Infinity;
-      });
-      const minCityDistance = Math.min(...cityDistances);
-      if (isFinite(minCityDistance)) {
-        distances.push(minCityDistance);
-      }
-    }
-
-    // Return average distance, or default if no valid distances
-    if (distances.length === 0) {
-      return 100; // Default distance if no strategic locations available
-    }
-
+    if (distances.length === 0) return 100;
     return distances.reduce((sum, d) => sum + d, 0) / distances.length;
   }
 
   /**
-   * Get minimum distance to any strategic location (for tiebreaker)
+   * Get minimum distance to any strategic location
    * @private
-   * @param {Object} zone - Zone GeoJSON feature
-   * @returns {number} - Minimum distance in km
    */
   _getMinDistanceToStrategicLocation(zone) {
     const coords = zone.geometry?.coordinates;
-    if (!coords || !Array.isArray(coords) || coords.length !== 2) {
-      return Infinity; // Invalid coordinates, sort to end
-    }
+    if (!coords || !Array.isArray(coords) || coords.length !== 2) return Infinity;
 
     const allDistances = [];
-
-    // Collect all distances to strategic locations
     const locationTypes = ['ports', 'airports', 'cityCenters'];
     locationTypes.forEach(type => {
       if (this.strategicLocations[type] && Array.isArray(this.strategicLocations[type])) {
         this.strategicLocations[type].forEach(location => {
           const locationCoords = location.geometry?.coordinates || location.coordinates;
           if (locationCoords && Array.isArray(locationCoords) && locationCoords.length === 2) {
-            try {
-              const distance = this.distanceCalculator(coords, locationCoords);
-              if (isFinite(distance)) {
-                allDistances.push(distance);
-              }
-            } catch (error) {
-              // Skip invalid distance calculations
-            }
+            const distance = this.distanceCalculator(coords, locationCoords);
+            if (isFinite(distance)) allDistances.push(distance);
           }
         });
       }
     });
 
-    // Return minimum distance, or Infinity if no valid distances
     return allDistances.length > 0 ? Math.min(...allDistances) : Infinity;
   }
 }
 
-// CommonJS export
-module.exports = { MultiCriteriaAnalyzer };
+export default MultiCriteriaAnalyzer;
+

@@ -83,6 +83,7 @@ export class AnalyticsDashboard {
     this.language = 'vi';
   }
 
+
   /**
    * Get translated text
    * @param {string} key - Translation key
@@ -215,10 +216,62 @@ export class AnalyticsDashboard {
   /**
    * Update dashboard data based on current filters
    */
-  updateData() {
-    const stats = this._calculateStats();
-    this._updateSummaryStats(stats);
-    this._updateCharts(stats);
+  async updateData() {
+    this._setLoading(true);
+    try {
+      // Simulate API delay
+      await new Promise(resolve => setTimeout(resolve, 800));
+      
+      const stats = this._calculateStats();
+      if (!stats) throw new Error('Failed to retrieve analytics data');
+      
+      this._updateSummaryStats(stats);
+      this._updateCharts(stats);
+      this._setLoading(false);
+    } catch (error) {
+      console.error('[AnalyticsDashboard] Update error:', error);
+      this._setLoading(false);
+      this.showNotification(error.message, 'error');
+    }
+  }
+
+  /**
+   * Set loading state UI
+   * @private
+   */
+  _setLoading(isLoading) {
+    const dashboard = document.getElementById('analytics-dashboard');
+    if (!dashboard) return;
+    
+    if (isLoading) {
+      dashboard.classList.add('loading');
+    } else {
+      dashboard.classList.remove('loading');
+    }
+  }
+
+  /**
+   * Show notification message
+   * @param {string} message 
+   * @param {string} type - 'success', 'error', 'info'
+   */
+  showNotification(message, type = 'info') {
+    const toast = document.createElement('div');
+    toast.className = `dashboard-toast toast-${type}`;
+    toast.innerHTML = `
+      <div class="toast-icon">
+        ${type === 'error' ? '⚠️' : (type === 'success' ? '✅' : 'ℹ️')}
+      </div>
+      <div class="toast-message">${message}</div>
+    `;
+    
+    const container = document.querySelector('.dashboard-container') || document.body;
+    container.appendChild(toast);
+    
+    setTimeout(() => {
+      toast.classList.add('fade-out');
+      setTimeout(() => toast.remove(), 500);
+    }, 4000);
   }
 
   /**
@@ -278,19 +331,20 @@ export class AnalyticsDashboard {
    */
   _calculateStats() {
     // In a real implementation, this would use the DataManager
-    // For now, return mock/dummy data
+    // Updated to 2026 current year with forecasts to 2027
     return {
-      zoneCount: 1052,
-      avgPrice: 85.5,
-      occupancy: 78.2,
-      growthScore: 72,
-      saturationIndex: 65,
+      zoneCount: 1124,
+      avgPrice: 98.5,
+      occupancy: 80.4,
+      growthScore: 74,
+      saturationIndex: 68,
       trends: [
-        { year: 2021, count: 850 },
         { year: 2022, count: 920 },
         { year: 2023, count: 1052 },
-        { year: 2024, count: 1120 }, // Forecast
-        { year: 2025, count: 1180 }  // Forecast
+        { year: 2024, count: 1095 },
+        { year: 2025, count: 1108 },
+        { year: 2026, count: 1124 },  // Hiện tại
+        { year: 2027, count: 1185 }   // Dự báo
       ]
     };
   }
@@ -480,4 +534,16 @@ export class AnalyticsDashboard {
     alert('Đang khởi tạo báo cáo phân tích...');
     this.exportGenerator.generateInvestmentReport(this.currentProvince, reportData);
   }
+
+  /**
+   * Cleanup and remove dashboard from DOM
+   */
+  destroy() {
+    this.hide();
+    this.dataManager = null;
+    this.predictionEngine = null;
+    this.heatmapController = null;
+    this.exportGenerator = null;
+  }
 }
+

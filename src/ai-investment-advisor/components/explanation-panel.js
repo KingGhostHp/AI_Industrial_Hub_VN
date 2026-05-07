@@ -11,21 +11,22 @@
 export class ExplanationPanel {
   /**
    * Initialize explanation panel
-   * @param {Object} recommendation - Recommendation instance with zone and score data
-   * @param {string} explanation - LLM-generated or rule-based explanation text
-   * @param {Object} options - Additional options
-   * @param {string} [options.language='vi'] - Display language ('vi' or 'en')
-   * @param {Object} [options.provinceAverage] - Province average scores for comparison
-   * @param {Array} [options.strengths] - Top 3 strengths
-   * @param {Array} [options.weaknesses] - Top 3 weaknesses
+   * @param {string} containerId - ID of the container element
+   * @param {Object} options - Services and configuration
+   * @param {Object} options.dataManager - Data manager service
+   * @param {Object} options.predictionEngine - Prediction engine service
    */
-  constructor(recommendation, explanation, options = {}) {
-    this.recommendation = recommendation;
-    this.explanation = explanation;
+  constructor(containerId, options = {}) {
+    this.containerId = containerId;
+    this.dataManager = options.dataManager;
+    this.predictionEngine = options.predictionEngine;
     this.language = options.language || 'vi';
-    this.provinceAverage = options.provinceAverage || null;
-    this.strengths = options.strengths || this._identifyStrengths();
-    this.weaknesses = options.weaknesses || this._identifyWeaknesses();
+    
+    this.recommendation = null;
+    this.explanation = null;
+    this.provinceAverage = null;
+    this.strengths = [];
+    this.weaknesses = [];
     
     // Vietnamese translations (default language)
     this.translations = {
@@ -41,7 +42,7 @@ export class ExplanationPanel {
         this_zone: 'Khu này',
         province_avg: 'TB Tỉnh',
         strengths: 'Điểm Mạnh',
-        weaknesses: 'Điểm Yếu',
+        weaknesses: 'Điểm Yêu',
         negative_impact: 'Tác Động Tiêu Cực',
         positive_impact: 'Tác Động Tích Cực',
         close: 'Đóng',
@@ -110,6 +111,38 @@ export class ExplanationPanel {
         similar: 'similar'
       }
     };
+  }
+  
+  /**
+   * Analyze an industrial zone on-demand
+   * @param {Object} feature - GeoJSON feature of the industrial zone
+   */
+  async analyzeIndustrialZone(feature) {
+    try {
+      console.log('🔍 Analyzing industrial zone:', feature.properties.name);
+      
+      // 1. Calculate Score using MultiCriteriaAnalyzer
+      const { MultiCriteriaAnalyzer } = await import('../services/multi-criteria-analyzer.js');
+      const analyzer = new MultiCriteriaAnalyzer(this.dataManager);
+      const recommendation = await analyzer.calculateScore(feature);
+      
+      // 2. Generate Explanation using LLMAPIService
+      const { LLMAPIService } = await import('../services/llm-api-service.js');
+      const llmService = new LLMAPIService(this.dataManager);
+      const explanation = await llmService.generateExplanation(recommendation);
+      
+      // 3. Update state
+      this.recommendation = recommendation;
+      this.explanation = explanation;
+      this.strengths = this._identifyStrengths();
+      this.weaknesses = this._identifyWeaknesses();
+      
+      // 4. Show the panel
+      this.show();
+    } catch (error) {
+      console.error('❌ Error analyzing industrial zone:', error);
+      alert('Không thể phân tích KCN này. Vui lòng thử lại sau.');
+    }
   }
   
   /**

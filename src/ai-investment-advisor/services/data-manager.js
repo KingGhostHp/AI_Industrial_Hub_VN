@@ -43,7 +43,7 @@ const STRATEGIC_LOCATION_TYPES = {
  * Data Manager class
  * Centralized data access layer for the AI Investment Advisor
  */
-class DataManager {
+export class DataManager {
   /**
    * Initialize Data Manager
    * @param {Object} options - Configuration options

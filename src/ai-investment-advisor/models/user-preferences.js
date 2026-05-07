@@ -1,8 +1,8 @@
 /**
- * User Preferences Model
+ * UserPreferences model
  * 
- * Stores user investment criteria, weights, and saved profiles.
- * Persists to localStorage for session continuity.
+ * Manages user configurations, industry profiles, budget ranges, and preferred provinces.
+ * Supports multiple named profiles and query history tracking with localStorage persistence.
  */
 export class UserPreferences {
   constructor() {
@@ -18,6 +18,8 @@ export class UserPreferences {
     this.requiredInfrastructure = [];
     this.language = 'vi';
     this.savedProfiles = [];
+    this.queryHistory = []; // Last 10 queries
+    this.MAX_HISTORY = 10;
   }
 
   /**
@@ -28,12 +30,94 @@ export class UserPreferences {
       localStorage.setItem('ai-advisor-prefs', JSON.stringify(this.toJSON()));
     } catch (error) {
       console.error('Failed to save preferences:', error);
-      // Handle quota exceeded or other localStorage errors
       if (error.name === 'QuotaExceededError') {
-        console.warn('localStorage quota exceeded. Clearing old data...');
-        // Could implement cleanup logic here
+        this._handleQuotaExceeded();
       }
     }
+  }
+
+  /**
+   * Handle localStorage quota exceeded by clearing old history
+   * @private
+   */
+  _handleQuotaExceeded() {
+    console.warn('localStorage quota exceeded. Clearing history to free space...');
+    this.queryHistory = [];
+    this.save();
+  }
+
+  /**
+   * Add a named profile
+   * @param {string} name - Profile name
+   */
+  saveProfile(name) {
+    const profile = {
+      id: `profile_${Date.now()}`,
+      name,
+      industryProfile: this.industryProfile,
+      criteriaWeights: { ...this.criteriaWeights },
+      budgetRange: { ...this.budgetRange },
+      preferredProvinces: [...this.preferredProvinces],
+      requiredInfrastructure: [...this.requiredInfrastructure],
+      timestamp: new Date().toISOString()
+    };
+    
+    // Replace if exists with same name, or add new
+    const index = this.savedProfiles.findIndex(p => p.name === name);
+    if (index !== -1) {
+      this.savedProfiles[index] = profile;
+    } else {
+      this.savedProfiles.push(profile);
+    }
+    
+    this.save();
+  }
+
+  /**
+   * Load a named profile
+   * @param {string} profileId - ID of the profile to load
+   */
+  loadProfile(profileId) {
+    const profile = this.savedProfiles.find(p => p.id === profileId);
+    if (profile) {
+      this.industryProfile = profile.industryProfile;
+      this.criteriaWeights = { ...profile.criteriaWeights };
+      this.budgetRange = { ...profile.budgetRange };
+      this.preferredProvinces = [...profile.preferredProvinces];
+      this.requiredInfrastructure = [...profile.requiredInfrastructure];
+      return true;
+    }
+    return false;
+  }
+
+  /**
+   * Add entry to query history
+   * @param {Object} query - Query parameters
+   */
+  addQueryToHistory(query) {
+    const entry = {
+      id: `query_${Date.now()}`,
+      params: query,
+      timestamp: new Date().toISOString()
+    };
+    
+    this.queryHistory.unshift(entry);
+    
+    // Enforce limit
+    if (this.queryHistory.length > this.MAX_HISTORY) {
+      this.queryHistory = this.queryHistory.slice(0, this.MAX_HISTORY);
+    }
+    
+    this.save();
+  }
+
+  /**
+   * Reset preferences to defaults
+   */
+  reset() {
+    const defaultPrefs = new UserPreferences();
+    Object.assign(this, defaultPrefs);
+    this.save();
   }
 
   /**
@@ -64,7 +148,8 @@ export class UserPreferences {
       preferredProvinces: this.preferredProvinces,
       requiredInfrastructure: this.requiredInfrastructure,
       language: this.language,
-      savedProfiles: this.savedProfiles
+      savedProfiles: this.savedProfiles,
+      queryHistory: this.queryHistory
     };
   }
 
@@ -87,6 +172,7 @@ export class UserPreferences {
     prefs.requiredInfrastructure = json.requiredInfrastructure || [];
     prefs.language = json.language || 'vi';
     prefs.savedProfiles = json.savedProfiles || [];
+    prefs.queryHistory = json.queryHistory || [];
     return prefs;
   }
 }
