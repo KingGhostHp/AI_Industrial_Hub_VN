@@ -2729,28 +2729,77 @@
       // Không còn cần thiết - events được xử lý trong custom markers
     }
 
+    /**
+     * Focus on an industrial zone feature
+     * Flies to the location, shows a popup, and updates relevant panels
+     * @param {Object} feature - The GeoJSON feature to focus on
+     */
     function focusOnIndustrialFeature(feature) {
       if (!feature?.geometry?.coordinates) return false;
-      lastSelectedIndustrial = feature;
+      
       const coords = feature.geometry.coordinates;
       const props = feature.properties || {};
-      map.flyTo({ center: coords, zoom: Math.max(map.getZoom(), 11), speed: 0.8 });
-      const googleUrl = coords?.length === 2
-        ? `https://www.google.com/maps/search/?api=1&query=${coords[1]},${coords[0]}`
-        : '';
+      
+      // Close existing popup
+      if (currentPopup) {
+        currentPopup.remove();
+      }
+      
+      lastSelectedIndustrial = feature;
+      
+      // Fly to location
+      map.flyTo({ 
+        center: coords, 
+        zoom: Math.max(map.getZoom(), 12), 
+        speed: 1.2,
+        curve: 1.4
+      });
+      
+      // Determine color based on kind (consistent with addIndustrialLayer)
+      const kind = props.kind || '';
+      const color = (kind.includes('Khu công nghiệp') || kind.includes('KCN')) ? '#ff9f1c' : '#2196F3';
+      
+      const googleUrl = `https://www.google.com/maps/search/?api=1&query=${coords[1]},${coords[0]}`;
       const popupHtml = `
-        <strong>${props.name || 'Không xác định'}</strong><br>
-        ${props.kind ? `<em>${props.kind}</em><br>` : ''}
-        ${props.address ? `${props.address}<br>` : ''}
-        ${googleUrl ? `<a href="${googleUrl}" target="_blank" rel="noopener">Mở Google Maps</a>` : ''}
+        <div style="font-family: Arial; min-width: 250px;">
+          <h3 style="margin: 0 0 10px 0; color: ${color}; font-size: 16px;">${props.name || 'Không xác định'}</h3>
+          ${props.kind ? `<p style="margin: 5px 0; font-size: 13px;"><strong>Loại:</strong> <em>${props.kind}</em></p>` : ''}
+          ${props.address ? `<p style="margin: 5px 0; font-size: 13px;"><strong>📍 Địa chỉ:</strong> ${props.address}</p>` : ''}
+          ${props.acreage ? `<p style="margin: 5px 0; font-size: 13px;"><strong>📏 Diện tích:</strong> ${props.acreage} ha</p>` : ''}
+          ${props.price ? `<p style="margin: 5px 0; font-size: 13px;"><strong>💰 Giá thuê:</strong> ${props.price}</p>` : ''}
+          <p style="margin: 5px 0; font-size: 12px; color: #666;"><strong>🗺️ Tọa độ:</strong> ${coords[1].toFixed(6)}°N, ${coords[0].toFixed(6)}°E</p>
+          ${props.url ? `<a href="${props.url}" target="_blank" rel="noopener" style="display: inline-block; margin-top: 8px; padding: 6px 12px; background: #0066cc; color: white; text-decoration: none; border-radius: 4px; font-size: 12px;">Xem chi tiết</a>` : ''}
+          <a href="${googleUrl}" target="_blank" rel="noopener" style="display: inline-block; margin-top: 8px; margin-left: 6px; padding: 6px 12px; background: #4CAF50; color: white; text-decoration: none; border-radius: 4px; font-size: 12px;">📍 Google Maps</a>
+          <button onclick="window.addToRouting && window.addToRouting('${props.name?.replace(/'/g, "\\'")}', [${coords[0]}, ${coords[1]}], 'origin')" style="display: inline-block; margin-top: 8px; margin-left: 6px; padding: 6px 12px; background: #2196F3; color: white; border: none; border-radius: 4px; font-size: 12px; cursor: pointer;">🚗 Đặt làm điểm xuất phát</button>
+          <button onclick="window.addToRouting && window.addToRouting('${props.name?.replace(/'/g, "\\'")}', [${coords[0]}, ${coords[1]}], 'destination')" style="display: inline-block; margin-top: 8px; margin-left: 6px; padding: 6px 12px; background: #FF9800; color: white; border: none; border-radius: 4px; font-size: 12px; cursor: pointer;">🎯 Đặt làm điểm đến</button>
+        </div>
       `;
-      new mapboxgl.Popup({ closeButton: true })
+      
+      currentPopup = new mapboxgl.Popup({ closeButton: true, maxWidth: '350px' })
         .setLngLat(coords)
         .setHTML(popupHtml)
         .addTo(map);
+        
+      currentPopup.on('close', () => {
+        currentPopup = null;
+      });
+      
       lastGeocoderPoint = coords;
+      
+      // Trigger other systems
+      if (typeof nearestLocationsOrchestrator !== 'undefined' && nearestLocationsOrchestrator) {
+        nearestLocationsOrchestrator.handleIndustrialZoneClick(feature);
+      }
+      
+      if (window.aiAdvisorModule && window.aiAdvisorModule.components.explanationPanel) {
+        window.aiAdvisorModule.components.explanationPanel.analyzeIndustrialZone(feature);
+      }
+      
       return true;
     }
+    
+    // Make global
+    window.focusOnIndustrialFeature = focusOnIndustrialFeature;
 
     
     function addMaritimeClaims() {
@@ -4557,6 +4606,16 @@ async function initializeAIAdvisor() {
             });
             const ranked = analyzer.rankZones(zones, criteria, industryProfile);
             const top20 = analyzer.getTopRecommendations(ranked, 20);
+            
+            // Store results globally for click handlers
+            window.aiTopResults = top20;
+            
+            // Define global click handler for AI results
+            window.focusOnAIResult = (idx) => {
+              if (window.aiTopResults && window.aiTopResults[idx]) {
+                window.focusOnIndustrialFeature(window.aiTopResults[idx].zone);
+              }
+            };
 
             const industryLabels = {
               manufacturing: 'Sản xuất chế tạo', logistics: 'Logistics', technology: 'Công nghệ',
@@ -4588,9 +4647,10 @@ async function initializeAIAdvisor() {
                   const scoreColor = score >= 70 ? '#10B981' : score >= 50 ? '#F59E0B' : '#EF4444';
                   const bd = item.breakdown;
                   return `
-                    <div style="background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.1); border-radius:10px; padding:12px 14px; margin-bottom:8px;"
-                         onmouseover="this.style.background='rgba(255,255,255,0.11)'" 
-                         onmouseout="this.style.background='rgba(255,255,255,0.06)'">
+                    <div style="background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.1); border-radius:10px; padding:12px 14px; margin-bottom:8px; cursor:pointer; transition:all 0.2s;"
+                         onmouseover="this.style.background='rgba(255,255,255,0.11)'; this.style.transform='translateY(-1px)'" 
+                         onmouseout="this.style.background='rgba(255,255,255,0.06)'; this.style.transform='translateY(0)'"
+                         onclick="window.focusOnAIResult(${idx})">
                       <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:8px;">
                         <div style="flex:1; min-width:0;">
                           <div style="font-size:13px; font-weight:700; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">
