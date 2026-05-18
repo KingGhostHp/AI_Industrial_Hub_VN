@@ -14,8 +14,9 @@ export class QuestionnairePanel {
    * Initialize questionnaire panel
    * @param {Function} onComplete - Callback with user criteria when submitted
    */
-  constructor(onComplete) {
+  constructor(onComplete, onCancel) {
     this.onComplete = onComplete;
+    this.onCancel = onCancel;
     this.currentStep = 0;
     this.totalSteps = 8;
     this.preferences = UserPreferences.load();
@@ -135,11 +136,17 @@ export class QuestionnairePanel {
   
   /**
    * Hide questionnaire panel
+   * @param {Boolean} isCompletion - True if hiding after successful submission
    */
-  hide() {
+  hide(isCompletion = false) {
     const panel = document.getElementById('ai-questionnaire-panel');
     if (panel) {
       panel.remove();
+      
+      // If we are cancelling (not completing), show welcome screen again
+      if (!isCompletion && typeof this.onCancel === 'function') {
+        this.onCancel();
+      }
     }
   }
   
@@ -230,6 +237,8 @@ export class QuestionnairePanel {
       this.currentStep--;
       this.render();
       this.attachEventListeners();
+    } else {
+      this.hide();
     }
   }
   
@@ -252,7 +261,7 @@ export class QuestionnairePanel {
     }
     
     // Hide panel
-    this.hide();
+    this.hide(true);
     
     return this.preferences;
   }
@@ -296,8 +305,7 @@ export class QuestionnairePanel {
         <div class="questionnaire-footer">
           <button 
             class="btn btn-secondary" 
-            id="prev-step" 
-            ${this.currentStep === 0 ? 'disabled' : ''}
+            id="prev-step"
           >
             ${this.t('previous')}
           </button>

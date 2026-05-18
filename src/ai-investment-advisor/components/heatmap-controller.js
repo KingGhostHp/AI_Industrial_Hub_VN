@@ -1,194 +1,234 @@
 /**
- * Heatmap Controller Component
- * 
- * Manages heatmap layers on Mapbox GL JS for various industrial metrics.
- * Supports rental price, development trend, saturation index, logistics cost, and growth potential.
- * 
- * Requirements: 6.5, 6.6, 6.7, 8.1, 8.2, 8.3, 8.4, 8.5, 8.6, 8.7, 20.3, 20.5
+ * Heatmap Controller Component — Paint-Property Strategy
+ *
+ * Thay vì thêm/xóa layer mới, component này cập nhật trực tiếp `fill-color`
+ * của layer `vn-provinces-fill` có sẵn theo metric được chọn.
+ *
+ * Ưu điểm:
+ * - Không lag khi bật/tắt (không thêm/xóa layer)
+ * - Không xung đột với layer mức độ phát triển
+ * - Dữ liệu được tính 1 lần khi khởi tạo, switch tức thì
+ *
+ * Requirements: 6.5, 6.6, 6.7, 8.1–8.7, 20.3, 20.5
  */
 
 export class HeatmapController {
   /**
-   * Initialize heatmap controller
    * @param {Object} mapInstance - Mapbox GL JS map instance
    */
   constructor(mapInstance) {
     this.map = mapInstance;
     this.activeMetric = null;
-    this.opacity = 0.7;
-    this.isVisible = false;
-    
-    // Layer and source IDs
-    this.layerId = 'ai-heatmap-layer';
-    this.outlineLayerId = 'ai-heatmap-outline-layer';
-    this.sourceId = 'vn-provinces'; // Existing province source
-    
-    // Metric color gradients (7-step)
-    this.gradients = {
+
+    // The existing layer we'll repaint (not a new layer)
+    this.fillLayerId = 'vn-provinces-fill';
+
+    // Stored enriched data keyed by province display_name
+    // { 'Hà Nội': { avg_rental_price: 90, growth_potential_score: 78, ... }, ... }
+    this._enrichedData = {};
+    this._dataReady = false;
+
+    // Original fill-color expression (development level gradient) — restored on deactivate
+    this._originalColorExpr = ['coalesce', ['get', 'color'], '#9b59b6'];
+    this._originalOpacity = 0.6;
+
+    // Color stops for each metric [value, color, ...]
+    // Values are normalised 0-100
+    this._stops = {
       price: [
-        0, '#10B981',   // Low price (Green)
-        25, '#34D399',
-        50, '#F59E0B',  // Mid price (Yellow/Orange)
-        75, '#F87171',
-        100, '#EF4444'  // High price (Red)
+        [0,   '#1a9641'],
+        [20,  '#a6d96a'],
+        [40,  '#ffffbf'],
+        [60,  '#fdae61'],
+        [80,  '#d7191c'],
+        [100, '#a50026'],
       ],
       growth: [
-        0, '#EF4444',   // Low growth (Red)
-        25, '#F87171',
-        50, '#F59E0B',  // Mid growth (Yellow/Orange)
-        75, '#34D399',
-        100, '#10B981'  // High growth (Green)
+        [0,   '#d7191c'],
+        [20,  '#fdae61'],
+        [40,  '#ffffbf'],
+        [60,  '#a6d96a'],
+        [80,  '#1a9641'],
+        [100, '#006837'],
       ],
       saturation: [
-        0, '#10B981',   // Low saturation (Green)
-        25, '#34D399',
-        50, '#F59E0B',  // Mid saturation (Yellow/Orange)
-        75, '#F87171',
-        100, '#EF4444'  // High saturation (Red)
+        [0,   '#1a9641'],
+        [20,  '#a6d96a'],
+        [40,  '#ffffbf'],
+        [60,  '#fdae61'],
+        [80,  '#d7191c'],
+        [100, '#a50026'],
       ],
       logistics: [
-        0, '#10B981',   // Low cost (Green)
-        25, '#34D399',
-        50, '#F59E0B',  // Mid cost (Yellow/Orange)
-        75, '#F87171',
-        100, '#EF4444'  // High cost (Red)
-      ]
+        [0,   '#1a9641'],
+        [20,  '#a6d96a'],
+        [40,  '#ffffbf'],
+        [60,  '#fdae61'],
+        [80,  '#d7191c'],
+        [100, '#a50026'],
+      ],
+    };
+
+    // Property name stored in GeoJSON per metric
+    this._propNames = {
+      price:      'hm_price',
+      growth:     'hm_growth',
+      saturation: 'hm_saturation',
+      logistics:  'hm_logistics',
     };
   }
 
+  // ---------------------------------------------------------------------------
+  // Public API
+  // ---------------------------------------------------------------------------
+
   /**
-   * Render heatmap layer for a specific metric
-   * @param {string} metric - 'price', 'growth', 'saturation', 'logistics'
-   * @param {number} [opacity=0.7] - Layer opacity (0.3 to 1.0)
+   * Store enriched metric data for all provinces.
+   * Called once by AnalyticsDashboard after initial computation.
+   * @param {Object} dataByProvince  { 'Hà Nội': { avgPrice, growthScore, saturationIndex, logisticsScore }, ... }
    */
-  renderHeatmap(metric, opacity = 0.7) {
-    if (!this.map || !this.map.isStyleLoaded()) return;
-    
-    // Debounce to prevent rapid re-renders
-    if (this._renderTimeout) clearTimeout(this._renderTimeout);
-    this._renderTimeout = setTimeout(() => {
-      requestAnimationFrame(() => {
-        this._executeRenderHeatmap(metric, opacity);
-      });
-    }, 50);
+  setEnrichedData(dataByProvince) {
+    this._enrichedData = dataByProvince || {};
+    this._dataReady = Object.keys(this._enrichedData).length > 0;
+    console.log(`[HeatmapController] Enriched data stored for ${Object.keys(this._enrichedData).length} provinces`);
+
+    // Push values into the live GeoJSON source so expressions can read them
+    this._patchSource();
   }
 
   /**
-   * Actual rendering logic
-   * @private
+   * Activate a metric heatmap. Switches instantly via setPaintProperty.
+   * @param {'price'|'growth'|'saturation'|'logistics'} metric
    */
-  _executeRenderHeatmap(metric, opacity) {
+  activate(metric) {
+    if (!this._layerExists()) return;
+    if (!this._dataReady) {
+      console.warn('[HeatmapController] Data not ready yet — call setEnrichedData first');
+      return;
+    }
+
     this.activeMetric = metric;
-    this.opacity = opacity;
-    this.isVisible = true;
 
-    // Remove existing heatmap layers if any
-    this._removeLayers();
+    const prop = this._propNames[metric];
+    const stops = this._stops[metric];
 
-    const propertyName = this._getMetricPropertyName(metric);
+    // Build a match/step expression from the stored property
+    const colorExpr = this._buildInterpolateExpr(prop, stops);
 
-    // Add fill layer
-    this.map.addLayer({
-      id: this.layerId,
-      type: 'fill',
-      source: this.sourceId,
-      paint: {
-        'fill-color': [
-          'interpolate',
-          ['linear'],
-          ['get', propertyName],
-          ...this.gradients[metric] || this.gradients.price
-        ],
-        'fill-opacity': opacity
-      }
-    }, 'vn-provinces-outline');
+    this.map.setPaintProperty(this.fillLayerId, 'fill-color', colorExpr);
+    this.map.setPaintProperty(this.fillLayerId, 'fill-opacity', 0.82);
 
-    // Add outline layer for clarity
-    this.map.addLayer({
-      id: this.outlineLayerId,
-      type: 'line',
-      source: this.sourceId,
-      paint: {
-        'line-color': '#FFFFFF',
-        'line-width': 1,
-        'line-opacity': 0.5
-      }
-    }, 'vn-provinces-label');
+    console.log(`[HeatmapController] Activated heatmap: ${metric}`);
   }
 
   /**
-   * Toggle heatmap visibility
-   * @param {boolean} visible 
+   * Deactivate heatmap — restore original development-level colours.
+   */
+  deactivate() {
+    if (!this._layerExists()) return;
+
+    this.activeMetric = null;
+    this.map.setPaintProperty(this.fillLayerId, 'fill-color', this._originalColorExpr);
+    this.map.setPaintProperty(this.fillLayerId, 'fill-opacity', this._originalOpacity);
+
+    console.log('[HeatmapController] Deactivated — restored original colours');
+  }
+
+  /**
+   * Legacy alias used by AnalyticsDashboard._toggleHeatmap
    */
   toggle(visible) {
-    this.isVisible = visible;
-    const visibility = visible ? 'visible' : 'none';
-    
-    if (this.map.getLayer(this.layerId)) {
-      this.map.setLayoutProperty(this.layerId, 'visibility', visibility);
-    }
-    
-    if (this.map.getLayer(this.outlineLayerId)) {
-      this.map.setLayoutProperty(this.outlineLayerId, 'visibility', visibility);
-    }
+    if (!visible) this.deactivate();
   }
 
   /**
-   * Update layer opacity
-   * @param {number} opacity - 0.3 to 1.0
+   * Legacy alias — no-op, kept for API compatibility.
+   * The new flow uses activate() after setEnrichedData().
    */
-  setOpacity(opacity) {
-    this.opacity = opacity;
-    if (this.map.getLayer(this.layerId)) {
-      this.map.setPaintProperty(this.layerId, 'fill-opacity', opacity);
-    }
+  async renderHeatmap(metric) {
+    this.activate(metric);
   }
 
   /**
-   * Remove heatmap layers from map
+   * Legacy alias — no-op, the new flow patches source directly.
    */
-  _removeLayers() {
-    if (this.map.getLayer(this.layerId)) {
-      this.map.removeLayer(this.layerId);
-    }
-    if (this.map.getLayer(this.outlineLayerId)) {
-      this.map.removeLayer(this.outlineLayerId);
-    }
+  async updateSourceData() {
+    // intentionally left empty — data is patched via setEnrichedData → _patchSource
   }
 
-  /**
-   * Get Mapbox property name for the given metric
-   * @param {string} metric 
-   * @returns {string}
-   */
-  _getMetricPropertyName(metric) {
-    // These should match the properties provided by DataManager/PredictionEngine
-    const mapping = {
-      price: 'avg_rental_price',
-      growth: 'growth_potential_score',
-      saturation: 'saturation_index',
-      logistics: 'avg_logistics_cost'
-    };
-    return mapping[metric] || 'score';
-  }
-
-  /**
-   * Show legend for the active metric
-   */
-  renderLegend() {
-    // Implementation for legend UI
-    // Similar to existing createProvinceLegend but for heatmap
-  }
-
-  /**
-   * Cleanup and remove all layers
-   */
   destroy() {
-    if (this._renderTimeout) {
-      clearTimeout(this._renderTimeout);
-      this._renderTimeout = null;
-    }
-    this._removeLayers();
+    this.deactivate();
     this.map = null;
+  }
+
+  // ---------------------------------------------------------------------------
+  // Private helpers
+  // ---------------------------------------------------------------------------
+
+  _layerExists() {
+    return this.map && this.map.getLayer(this.fillLayerId);
+  }
+
+  /**
+   * Write hm_* properties into every feature in the live GeoJSON source
+   * so that Mapbox expressions can read them.
+   */
+  _patchSource() {
+    if (!window.provinceGeojson) {
+      console.warn('[HeatmapController] provinceGeojson not on window yet — will retry');
+      setTimeout(() => this._patchSource(), 800);
+      return;
+    }
+
+    const normalize = window.normalizeProvinceName || (s => s);
+
+    const patched = {
+      ...window.provinceGeojson,
+      features: window.provinceGeojson.features.map(f => {
+        const rawName = f.properties.ten_tinh || f.properties.name || f.properties.display_name || '';
+        const name = normalize(rawName);
+        const stats = this._enrichedData[name] || {};
+
+        // Normalise price to 0-100 (treat 200 USD/m² as max)
+        const priceNorm  = Math.min(100, ((stats.avgPrice || 0) / 200) * 100);
+        const growth     = Math.min(100, Math.max(0, stats.growthScore || 50));
+        const saturation = Math.min(100, Math.max(0, stats.saturationIndex || 0));
+        const logistics  = Math.min(100, Math.max(0, 100 - (stats.logisticsScore || 50)));
+
+        return {
+          ...f,
+          properties: {
+            ...f.properties,
+            hm_price:      Math.round(priceNorm),
+            hm_growth:     Math.round(growth),
+            hm_saturation: Math.round(saturation),
+            hm_logistics:  Math.round(logistics),
+          }
+        };
+      })
+    };
+
+    // Update both the global reference and the live Mapbox source
+    window.provinceGeojson = patched;
+
+    const source = this.map && this.map.getSource('vn-provinces');
+    if (source) {
+      source.setData(patched);
+      console.log('[HeatmapController] Live source patched with hm_* properties');
+    }
+  }
+
+  /**
+   * Build a Mapbox GL interpolate expression.
+   * @param {string} prop - GeoJSON property name
+   * @param {Array}  stops - [[value, color], ...]
+   */
+  _buildInterpolateExpr(prop, stops) {
+    const flat = stops.flatMap(([v, c]) => [v, c]);
+    return [
+      'interpolate', ['linear'],
+      ['coalesce', ['get', prop], 0],
+      ...flat
+    ];
   }
 }

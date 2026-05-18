@@ -144,7 +144,7 @@ class LogisticsCalculator {
     const locations = this._getLocationsByType(locationType);
 
     if (!locations || locations.length === 0) {
-      console.warn(`[LogisticsCalculator] No ${locationType} locations available`);
+      // Return empty without spamming warning for each province enrichment
       return [];
     }
 
@@ -245,17 +245,17 @@ class LogisticsCalculator {
 
     // If no strategic locations found, return 0 score
     if (distances.length === 0) {
-      console.warn('[LogisticsCalculator] No strategic locations found, returning score 0');
       return 0;
     }
 
     // Calculate average distance
     const avgDistance = distances.reduce((sum, d) => sum + d, 0) / distances.length;
 
-    // Define maximum distance for normalization (500 km is a reasonable max for Vietnam)
-    const maxDistance = 500;
+    // Define maximum distance for normalization (300 km increases contrast for Vietnam)
+    const maxDistance = 300;
 
     // Calculate score: 100 × (1 - avgDistance / maxDistance)
+    // console.log(`[LogisticsCalculator] ${zone.properties?.name || 'Zone'} - Avg Distance: ${avgDistance.toFixed(1)}km`);
     // Clamp to [0, 100] range
     let score = 100 * (1 - avgDistance / maxDistance);
     score = Math.max(0, Math.min(100, score));

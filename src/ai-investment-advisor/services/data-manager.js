@@ -213,6 +213,15 @@ export class DataManager {
   }
 
   /**
+   * Get strategic locations from cache (synchronous)
+   * @param {string} locationType - Type of location ('seaport', 'airport', 'city_center')
+   * @returns {Object|null} - GeoJSON FeatureCollection or null if not loaded
+   */
+  getStrategicLocationsByType(locationType) {
+    return this.strategicLocations.get(locationType) || null;
+  }
+
+  /**
    * Internal method to load strategic locations
    * @private
    */
@@ -387,9 +396,13 @@ export class DataManager {
       return [];
     }
     
-    return this.zonesData.features.filter(
-      feature => feature.properties.province === province
-    );
+    const normalizedTarget = province.toLowerCase().replace(/^tp\.\s*|^thành phố\s*|^tỉnh\s*/i, '').trim();
+    
+    return this.zonesData.features.filter(feature => {
+      const p = feature.properties.province || feature.properties.tinh || '';
+      const normalizedP = String(p).toLowerCase().replace(/^tp\.\s*|^thành phố\s*|^tỉnh\s*/i, '').trim();
+      return normalizedP === normalizedTarget;
+    });
   }
 
   /**

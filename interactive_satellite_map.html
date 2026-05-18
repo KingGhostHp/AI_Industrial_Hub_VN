@@ -1048,6 +1048,7 @@
       
       return normalized;
     }
+    window.normalizeProvinceName = normalizeProvinceName;
 
     /**
      * Gets the development color for a province based on its classification
@@ -1504,6 +1505,7 @@
       zoom: 5.3,
       pitch: 0,
     });
+    window.map = map;
 
     map.addControl(new mapboxgl.NavigationControl(), 'bottom-right');
 
@@ -2353,7 +2355,7 @@
           feature.properties = {
             ...props,
             color,
-            display_name: provinceName,
+            display_name: normalizeProvinceName(provinceName),
             members: props.members || [],
           };
           return feature;
@@ -2370,6 +2372,7 @@
           },
         }));
         provinceGeojson = geojson;
+        window.provinceGeojson = geojson;
         provinceLabelGeojson = { type: 'FeatureCollection', features: labelFeatures };
         addProvinceLayer(geojson);
         
@@ -2462,6 +2465,8 @@
             }
             
             lastSelectedIndustrial = feature;
+            window.selectedIndustrialFeature = feature;
+            window.selectedProvince = props.province || props.tinh || null;
             const googleUrl = `https://www.google.com/maps/search/?api=1&query=${coords[1]},${coords[0]}`;
             const popupHtml = `
               <div style="font-family: Arial; min-width: 250px;">
@@ -3634,14 +3639,18 @@ function handleGeocoderResult(result) {
     };
 
     // Initialize routing when map is ready
-    map.on('load', () => {
-      setTimeout(() => {
-        setupMainSidebar();
-        initializeRoutingSystem();
-        initializeStrategicLocations();
-        initializeGPS(); // Initialize GPS functionality
-        initializeAIAdvisor(); // Initialize AI Investment Advisor
-      }, 1000);
+    map.on('load', async () => {
+      // Small delay to ensure style is fully ready
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
+      setupMainSidebar();
+      initializeRoutingSystem();
+      
+      // Initialize strategic locations first as other modules depend on its data
+      await initializeStrategicLocations();
+      
+      initializeGPS(); // Initialize GPS functionality
+      initializeAIAdvisor(); // Initialize AI Investment Advisor
     });
 
 // ============================================
@@ -4519,23 +4528,35 @@ async function initializeAIAdvisor() {
     const { ExplanationPanel } = await import('./src/ai-investment-advisor/components/explanation-panel.js');
     const { AnalyticsDashboard } = await import('./src/ai-investment-advisor/components/analytics-dashboard.js');
     const { HeatmapController } = await import('./src/ai-investment-advisor/components/heatmap-controller.js');
+    const { IndustrialChatService } = await import('./src/ai-investment-advisor/services/industrial-chat-service.js');
+    const { IndustrialChatbot } = await import('./src/ai-investment-advisor/components/industrial-chatbot.js');
+    const LogisticsCalculator = (await import('./src/ai-investment-advisor/services/logistics-calculator.js')).default;
     
-    // Initialize services
+    // Initialize core services
     const dataManager = new DataManager();
     const predictionEngine = new PredictionEngine(dataManager);
     const exportGenerator = new ExportGenerator(dataManager);
     const heatmapController = new HeatmapController(map);
     
-    // Load initial data
+    // IMPORTANT: Load data BEFORE initializing logisticsCalculator or dashboard
+    // This ensures these services have access to actual GeoJSON features
     await dataManager.loadZoneData();
     await dataManager.loadAllStrategicLocations();
+    
+    const logisticsCalculator = new LogisticsCalculator({
+      ports: dataManager.getStrategicLocationsByType('seaport'),
+      airports: dataManager.getStrategicLocationsByType('airport'),
+      cityCenters: dataManager.getStrategicLocationsByType('city_center')
+    });
     
     // Initialize UI components
     const analyticsDashboard = new AnalyticsDashboard('aiAdvisorContainer', {
       dataManager,
       predictionEngine,
       heatmapController,
-      exportGenerator
+      exportGenerator,
+      logisticsCalculator,
+      onClose: () => showAIAdvisorWelcome()
     });
     
     const { QuestionnairePanel } = await import('./src/ai-investment-advisor/components/questionnaire-panel.js');
@@ -4701,7 +4722,7 @@ async function initializeAIAdvisor() {
               </div>
             `;
           }
-        });
+        }, () => showAIAdvisorWelcome());
         questionnaire.show();
       });
 
@@ -4727,12 +4748,32 @@ async function initializeAIAdvisor() {
       dataManager,
       predictionEngine
     });
+
+    const industrialChatService = new IndustrialChatService({
+      dataManager,
+      logisticsCalculator
+    });
+    const industrialChatbot = new IndustrialChatbot({
+      chatService: industrialChatService,
+      onFocusZone: (feature) => {
+        if (feature && typeof window.focusOnIndustrialFeature === 'function') {
+          window.focusOnIndustrialFeature(feature);
+        }
+      },
+      onOpenAnalytics: () => analyticsDashboard.show(),
+      contextProvider: () => ({
+        selectedZone: window.selectedIndustrialFeature || null,
+        selectedProvince: window.selectedProvince || null
+      })
+    });
+    industrialChatbot.mount();
     
     // Store module globally
     aiAdvisorModule = {
-      services: { dataManager, predictionEngine, exportGenerator, heatmapController },
-      components: { analyticsDashboard, explanationPanel }
+      services: { dataManager, predictionEngine, exportGenerator, heatmapController, logisticsCalculator, industrialChatService },
+      components: { analyticsDashboard, explanationPanel, industrialChatbot }
     };
+    window.aiAdvisorModule = aiAdvisorModule;
     
     // Connect to industrial zone clicks
     const originalMarkerClickHandler = (feature) => {
