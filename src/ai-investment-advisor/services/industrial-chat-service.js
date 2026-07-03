@@ -28,6 +28,19 @@ const SOUTHERN_PROVINCES = ['Hồ Chí Minh', 'Bình Dương', 'Đồng Nai', 'L
 const NORTHERN_PROVINCES = ['Hà Nội', 'Bắc Ninh', 'Hải Phòng', 'Hải Dương', 'Hưng Yên', 'Vĩnh Phúc', 'Thái Nguyên', 'Quảng Ninh', 'Bắc Giang'];
 const CENTRAL_PROVINCES = ['Đà Nẵng', 'Quảng Nam', 'Quảng Ngãi', 'Thừa Thiên', 'Nghệ An', 'Thanh Hóa', 'Bình Định', 'Khánh Hòa'];
 
+const DATA_SOURCES = {
+  zones: 'industrial_zones.geojson',
+  ports: 'cangbienexport.geojson',
+  airports: 'export.geojson',
+  cityCenters: '34-tinh-thanh-trung-tam.geojson'
+};
+
+const QUERY_STOPWORDS = new Set([
+  'kcn', 'ccn', 'khu', 'cum', 'cong', 'nghiep', 'nao', 'gi', 'o', 'tai', 'thuoc',
+  'tim', 'cho', 'minh', 'toi', 'gan', 'nhat', 'phu', 'hop', 'nganh', 'danh', 'sach',
+  'co', 'la', 'va', 'voi', 'theo', 'du', 'lieu', 'hien', 'nay'
+]);
+
 export class IndustrialChatService {
   constructor(options = {}) {
     this.dataManager = options.dataManager;
@@ -43,19 +56,21 @@ export class IndustrialChatService {
       return this._text('Bạn muốn tìm hiểu về KCN/CCN, tỉnh thành, logistics hay chi phí đầu tư?');
     }
 
+    const directZoneMatches = this._searchZonesByText(query, zones, 5);
+
     if (this._isPolicyQuestion(query)) {
-      return this._text('Hiện chatbot Phase 1 chưa có kho tài liệu chính sách/quy hoạch để trích dẫn. Mình không bịa thông tin pháp lý; phần này nên đưa vào Phase 2 RAG có nguồn/citation.');
+      return this._answerPolicyQuestion(query, zones, directZoneMatches);
     }
 
     if (this._includesAny(query, ['so sánh', 'compare', 'khác nhau'])) {
       return this._compareProvinces(query, zones);
     }
 
-    if (this._includesAny(query, ['logistics', 'gần cảng', 'cảng biển', 'sân bay', 'kho vận'])) {
+    if (this._includesAny(query, ['logistics', 'gần cảng', 'cảng biển', 'sân bay', 'kho vận', 'xuất khẩu', 'vận tải'])) {
       return this._findLogisticsZones(query, zones);
     }
 
-    if (this._includesAny(query, ['giá thấp', 'rẻ', 'ngân sách', 'chi phí thấp', 'giá thuê'])) {
+    if (this._includesAny(query, ['giá thấp', 'rẻ', 'ngân sách', 'chi phí thấp', 'giá thuê', 'gia thue'])) {
       return this._findCheapZones(query, zones);
     }
 
@@ -69,12 +84,21 @@ export class IndustrialChatService {
       return this._recommendByIndustry(query, zones, industry || 'manufacturing');
     }
 
+    if (directZoneMatches.length > 0) {
+      return this._answerFromRetrievedZones(query, directZoneMatches);
+    }
+
     if (context.selectedZone) {
       return this._explainZone(context.selectedZone);
     }
 
+    const retrieved = this._retrieveRelevantZones(query, zones, this.maxResults);
+    if (retrieved.length > 0) {
+      return this._answerFromRetrievedZones(query, retrieved);
+    }
+
     return this._text(
-      'Mình có thể hỗ trợ: tìm KCN theo tỉnh, tìm khu gần cảng/sân bay, so sánh tỉnh, tìm khu giá thấp, hoặc gợi ý KCN theo ngành. Ví dụ: “KCN nào gần cảng nhất?”'
+      `Mình chưa tìm thấy ngữ cảnh đủ mạnh trong ${DATA_SOURCES.zones}. Bạn thử hỏi rõ hơn theo tên KCN, tỉnh, giá thuê, ngành hoặc logistics. Ví dụ: “Tìm KCN ở Bình Dương gần cảng”.`
     );
   }
 
@@ -100,8 +124,8 @@ export class IndustrialChatService {
     const top = matched.slice(0, this.maxResults);
     return {
       type: 'zone-list',
-      answer: `Tìm thấy ${matched.length} KCN/CCN tại ${provinces.join(', ')}. Dưới đây là ${top.length} khu đầu tiên trong dữ liệu hiện có:`,
-      items: top.map(zone => this._zoneCard(zone)),
+      answer: `Tìm thấy ${matched.length} KCN/CCN tại ${provinces.join(', ')} trong ${DATA_SOURCES.zones}. Dưới đây là ${top.length} khu phù hợp đầu tiên:\n${this._sourceLine(['zones'])}`,
+      items: top.map(zone => this._zoneCard(zone, this._buildZoneDetails(zone))),
       suggestions: ['KCN nào gần cảng nhất?', `So sánh ${provinces[0]} với Hải Phòng`]
     };
   }
@@ -277,6 +301,144 @@ export class IndustrialChatService {
 
   _isPolicyQuestion(query) {
     return this._includesAny(query, ['thuế', 'ưu đãi', 'pháp lý', 'quy hoạch', 'nghị định', 'giấy phép', 'chính sách']);
+  }
+
+  _answerPolicyQuestion(query, zones, directMatches = []) {
+    const provinceNames = this._extractProvinceNames(query, zones);
+    const scopedZones = directMatches.length
+      ? directMatches
+      : provinceNames.length
+        ? zones.filter(zone => provinceNames.some(p => this._normalize(this._getProvince(zone)).includes(this._normalize(p))))
+        : [];
+
+    const scopedLine = scopedZones.length
+      ? `\nMình tìm thấy ${scopedZones.length} KCN/CCN liên quan để bạn xem trước, nhưng chưa có văn bản chính sách để kết luận ưu đãi/pháp lý.`
+      : '';
+
+    return {
+      type: 'policy-limited',
+      answer: `Mình chưa có kho văn bản pháp lý/quy hoạch chính thức để trích dẫn nên sẽ không bịa thông tin ưu đãi, thuế hoặc giấy phép.${scopedLine}\n${this._sourceLine(['zones'])}\nGợi ý: hãy bổ sung PDF/JSON chính sách vào Phase 2 RAG để chatbot trả lời kèm citation pháp lý.`,
+      items: scopedZones.slice(0, this.maxResults).map(zone => this._zoneCard(zone, this._buildZoneDetails(zone))),
+      suggestions: ['Tìm KCN gần cảng biển', 'So sánh Bắc Ninh và Hải Phòng']
+    };
+  }
+
+  _answerFromRetrievedZones(query, zones) {
+    const top = zones.slice(0, this.maxResults);
+    const provinceCount = new Set(top.map(zone => this._getProvince(zone)).filter(Boolean)).size;
+    return {
+      type: 'retrieved-zone-list',
+      answer: `Mình tìm thấy ${top.length} KCN/CCN liên quan nhất theo nội dung bạn hỏi${provinceCount ? `, trải trên ${provinceCount} tỉnh/thành` : ''}. Kết quả được truy xuất trực tiếp từ dữ liệu hiện có, không dùng suy đoán ngoài nguồn.\n${this._sourceLine(['zones'])}`,
+      items: top.map(zone => this._zoneCard(zone, this._buildZoneDetails(zone))),
+      suggestions: ['KCN nào gần cảng nhất?', 'KCN nào có giá thuê thấp?', 'Tư vấn cho ngành logistics']
+    };
+  }
+
+  _retrieveRelevantZones(query, zones, limit = this.maxResults) {
+    const tokens = this._queryTokens(query);
+    if (tokens.length === 0) return [];
+
+    return zones
+      .map(zone => ({ zone, score: this._scoreZoneForQuery(zone, tokens, query) }))
+      .filter(item => item.score > 0)
+      .sort((a, b) => b.score - a.score)
+      .slice(0, limit)
+      .map(item => item.zone);
+  }
+
+  _searchZonesByText(query, zones, limit = this.maxResults) {
+    const normalizedQuery = this._normalize(query);
+    const tokens = this._queryTokens(query);
+    if (tokens.length === 0) return [];
+
+    return zones
+      .map(zone => {
+        const name = this._normalize(this._getName(zone));
+        const province = this._normalize(this._getProvince(zone));
+        const searchable = this._zoneSearchText(zone);
+        let score = 0;
+
+        if (name && normalizedQuery.includes(name)) score += 100;
+        if (name && name.includes(normalizedQuery)) score += 80;
+        if (province && normalizedQuery.includes(province)) score += 35;
+        score += tokens.reduce((sum, token) => sum + (searchable.includes(token) ? token.length : 0), 0);
+
+        return { zone, score };
+      })
+      .filter(item => item.score >= 12)
+      .sort((a, b) => b.score - a.score)
+      .slice(0, limit)
+      .map(item => item.zone);
+  }
+
+  _scoreZoneForQuery(zone, tokens, query) {
+    const searchable = this._zoneSearchText(zone);
+    const province = this._normalize(this._getProvince(zone));
+    let score = 0;
+
+    for (const token of tokens) {
+      if (searchable.includes(token)) score += Math.max(2, token.length);
+      if (province && province.includes(token)) score += 10;
+    }
+
+    const price = this._parseNumber(zone.properties?.price);
+    if (this._includesAny(query, ['rẻ', 'giá thấp', 'chi phí']) && Number.isFinite(price)) {
+      score += Math.max(0, 30 - price / 10);
+    }
+
+    const acreage = this._parseNumber(zone.properties?.acreage);
+    if (this._includesAny(query, ['lớn', 'diện tích', 'quy mô']) && Number.isFinite(acreage)) {
+      score += Math.min(30, acreage / 100);
+    }
+
+    return score;
+  }
+
+  _zoneSearchText(zone) {
+    const props = zone.properties || {};
+    return this._normalize([
+      this._getName(zone),
+      this._getProvince(zone),
+      props.type,
+      props.status,
+      props.infrastructure,
+      props.industry,
+      props.description,
+      props.address,
+      props.price,
+      props.acreage
+    ].filter(Boolean).join(' '));
+  }
+
+  _queryTokens(query) {
+    return this._normalize(query)
+      .split(/[^a-z0-9]+/)
+      .map(token => token.trim())
+      .filter(token => token.length >= 3 && !QUERY_STOPWORDS.has(token));
+  }
+
+  _buildZoneDetails(zone) {
+    const props = zone.properties || {};
+    const details = [];
+    const province = this._getProvince(zone);
+    const price = props.price || props.gia;
+    const acreage = props.acreage || props.dientich || props.area;
+
+    if (province) details.push(`Tỉnh: ${province}`);
+    if (acreage) details.push(`Diện tích: ${acreage} ha`);
+    if (price) details.push(`Giá: ${price}`);
+
+    try {
+      const nearestPort = this.logisticsCalculator?.findNearestLocations?.(zone, 'port', 1)?.[0];
+      if (nearestPort) details.push(`Cảng gần nhất: ${nearestPort.name} (${nearestPort.distance.toFixed(1)} km)`);
+    } catch { /* optional enrichment */ }
+
+    return details.slice(0, 4).join(' · ');
+  }
+
+  _sourceLine(keys = ['zones']) {
+    const sources = keys.map(key => DATA_SOURCES[key]).filter(Boolean).join(', ');
+    return `Nguồn: ${sources}.`;
   }
 
   _text(answer) {

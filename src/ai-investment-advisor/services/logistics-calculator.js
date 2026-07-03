@@ -33,9 +33,9 @@ class LogisticsCalculator {
   constructor(strategicLocations = {}) {
     this.distanceCalculator = new DistanceCalculator();
     this.strategicLocations = {
-      ports: strategicLocations.ports || { type: 'FeatureCollection', features: [] },
-      airports: strategicLocations.airports || { type: 'FeatureCollection', features: [] },
-      cityCenters: strategicLocations.cityCenters || { type: 'FeatureCollection', features: [] }
+      ports: this._normalizeFeatureCollection(strategicLocations.ports),
+      airports: this._normalizeFeatureCollection(strategicLocations.airports),
+      cityCenters: this._normalizeFeatureCollection(strategicLocations.cityCenters)
     };
     
     console.log('[LogisticsCalculator] Initialized with strategic locations:', {
@@ -313,6 +313,18 @@ class LogisticsCalculator {
     
     // Prefer Vietnamese name, fallback to English name, then to generic label
     return props.name || props['name:en'] || props.Name || 'Unknown Location';
+  }
+
+  _normalizeFeatureCollection(data) {
+    if (Array.isArray(data)) {
+      return { type: 'FeatureCollection', features: data };
+    }
+
+    if (data && Array.isArray(data.features)) {
+      return data;
+    }
+
+    return { type: 'FeatureCollection', features: [] };
   }
 
   /**

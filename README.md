@@ -172,11 +172,21 @@ git clone <repository-url>
 cd MapBox-fixed
 ```
 
-### Bước 2: Cấu hình Mapbox Token
-Mở `interactive_satellite_map.html` và thay thế token:
-```javascript
-const MAPBOX_TOKEN = 'YOUR_MAPBOX_TOKEN_HERE';
+### Bước 2: Cấu hình biến môi trường
+Sao chép file `.env.example` thành `.env`:
+```bash
+cp .env.example .env
 ```
+
+Sau đó mở file `.env` và cập nhật các giá trị cần thiết:
+```bash
+MAPBOX_ACCESS_TOKEN=your_mapbox_access_token_here
+GEMINI_API_KEY=your_gemini_api_key_here
+LLM_PROVIDER=gemini
+```
+
+> **Lưu ý:** Không commit file `.env` lên repository. File `.env.example` chỉ chứa cấu hình mẫu và placeholder an toàn.
+
 
 ### Bước 3: Chạy web server
 **Python:**
@@ -621,12 +631,21 @@ graph TD
 
 ### 🛠️ Cài đặt Module AI
 
-Module AI yêu cầu cấu hình API Key cho LLM trong file `.env`:
+Module AI yêu cầu cấu hình API Key cho LLM trong file `.env`. Có thể tạo nhanh từ file mẫu:
 
 ```bash
-LLM_API_KEY=your_api_key_here
-LLM_PROVIDER=google # hoặc openai
+cp .env.example .env
 ```
+
+Các biến chính cần kiểm tra:
+```bash
+GEMINI_API_KEY=your_gemini_api_key_here
+GEMINI_MODEL=gemini-3.1-flash-lite
+GEMINI_TEMPERATURE=0.7
+GEMINI_MAX_TOKENS=500
+LLM_PROVIDER=gemini
+```
+
 
 Chạy script cập nhật dữ liệu hàng tháng:
 ```bash
